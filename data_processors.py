@@ -84,7 +84,7 @@ def create_image_records(records_path, image_dir, caption_json):
                         'width': _int64_feature(img['width'])
                     }
                     writer.write(tf.train.Example(features=tf.train.Features(feature=features)).SerializeToString())
-                    progress(i+1, len(images))
+                    progress(i + 1, len(images))
                 except (tf.errors.InvalidArgumentError, AssertionError):
                     print("Skip: file with invalid JPEG data: %s" % img['file_name'])
 
@@ -141,6 +141,7 @@ def parse_image(example_serialized):
     }
     parsed_features = tf.parse_single_example(example_serialized, features)
     return parsed_features["jpeg"], parsed_features["id"], parsed_features["width"], parsed_features["height"]
+
 
 def parse_caption(sequence_example_serialized):
     context, sequence = tf.parse_single_sequence_example(

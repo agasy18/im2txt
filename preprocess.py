@@ -2,10 +2,7 @@ from argparse import ArgumentParser
 from os import path, makedirs
 
 from data_processors import create_image_records, create_vocab, tokenize_captions, load_vocab, create_captions_records
-
 from utlis import call_program, working_dir, gs_download
-
-import image_embedding
 
 parser = ArgumentParser()
 

@@ -52,8 +52,6 @@ def progress(count, total, status=''):
     sys.stdout.flush()
 
 
-
-
 def gs_download(url):
     print('Download:', url)
     d_name = path.basename(url)
