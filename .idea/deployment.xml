@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="On explicit save action" serverName="gpu0">
+    <serverData>
+      <paths name="gpu0">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/user/sync/im2txt" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="data" />
+            <excludedPath path="data" />
+            <excludedPath local="true" path="records" />
+            <excludedPath path="records" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ON_EXPLICIT_SAVE" />
+  </component>
+</project>
