@@ -8,6 +8,8 @@ parser = ArgumentParser()
 
 parser.add_argument('--data_dir',
                     default='data', help='data dir')
+parser.add_argument('--records_dir', default='records', help='output directory for records')
+
 
 parser.add_argument('--gs_downloads', help='urls separated with ,',
                     default='gs://images.cocodataset.org/train2014,'
@@ -24,7 +26,6 @@ parser.add_argument('--train_caption_json', default='annotations/captions_train2
 parser.add_argument('--val_caption_json', default='annotations/captions_val2014.json')
 parser.add_argument('--train_image_dir', default='train2014')
 parser.add_argument('--val_image_dir', default='val2014')
-parser.add_argument('--records_dir', default='records')
 parser.add_argument('--image_records', default='images')
 parser.add_argument('--vocabulary', default='vocabulary.txt')
 parser.add_argument('--features', default='features')

@@ -34,6 +34,9 @@ class Vocabulary(object):
         else:
             return self._words[word_id]
 
+    def __len__(self):
+        return len(self._words) + 1
+
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -69,24 +72,22 @@ def create_image_records(records_path, image_dir, caption_json):
         assert len(image.shape) == 3
         assert image.shape[2] == 3
 
-    with tf.Session() as sess:
-        with tf.python_io.TFRecordWriter(records_path) as writer:
-
-            for i, img in enumerate(images):
-                try:
-                    with tf.gfile.FastGFile(path.join(image_dir, img['file_name']), "rb") as f:
-                        encoded_image = f.read()
-                    decode_jpeg(sess, encoded_image)
-                    features = {
-                        'jpeg': _bytes_feature(encoded_image),
-                        'id': _int64_feature(img['id']),
-                        'height': _int64_feature(img['height']),
-                        'width': _int64_feature(img['width'])
-                    }
-                    writer.write(tf.train.Example(features=tf.train.Features(feature=features)).SerializeToString())
-                    progress(i + 1, len(images))
-                except (tf.errors.InvalidArgumentError, AssertionError):
-                    print("Skip: file with invalid JPEG data: %s" % img['file_name'])
+    with tf.Session() as sess, tf.python_io.TFRecordWriter(records_path) as writer:
+        for i, img in enumerate(images):
+            try:
+                with tf.gfile.FastGFile(path.join(image_dir, img['file_name']), "rb") as f:
+                    encoded_image = f.read()
+                decode_jpeg(sess, encoded_image)
+                features = {
+                    'jpeg': _bytes_feature(encoded_image),
+                    'id': _int64_feature(img['id']),
+                    'height': _int64_feature(img['height']),
+                    'width': _int64_feature(img['width'])
+                }
+                writer.write(tf.train.Example(features=tf.train.Features(feature=features)).SerializeToString())
+                progress(i + 1, len(images))
+            except (tf.errors.InvalidArgumentError, AssertionError):
+                print("Skip: file with invalid JPEG data: %s" % img['file_name'])
 
 
 def create_vocab(captions, word_counts_file, min_word_count):
@@ -139,29 +140,30 @@ def parse_image(example_serialized):
         "width": tf.FixedLenFeature((), tf.int64, default_value=-1),
         "height": tf.FixedLenFeature((), tf.int64, default_value=-1),
     }
-    parsed_features = tf.parse_single_example(example_serialized, features)
-    return parsed_features["jpeg"], parsed_features["id"], parsed_features["width"], parsed_features["height"]
+    return tf.parse_single_example(example_serialized, features)
 
 
 def parse_caption(sequence_example_serialized):
     context, sequence = tf.parse_single_sequence_example(
         sequence_example_serialized,
         context_features={
-            'image/image_id': tf.FixedLenFeature((), tf.int64, default_value=-1),
-            'image/features': tf.FixedLenFeature([2048], dtype=tf.FixedLenFeature)
+            'image_id': tf.FixedLenFeature((), tf.int64, default_value=-1),
+            'features': tf.FixedLenFeature([2048], tf.float32)
         },
         sequence_features={
-            'image/caption_ids': tf.FixedLenSequenceFeature([], dtype=tf.int64),
+            'caption_ids': tf.FixedLenSequenceFeature([], dtype=tf.int64),
         })
 
-    return context['image/image_id'], context['image/features'], sequence['image/caption_ids']
+    return context, sequence
 
 
 def create_captions_records(records_path, image_records, captions, vocabulary, cnn_model):
     tf.reset_default_graph()
     dataset = contrib.data.TFRecordDataset([image_records])
     dataset = dataset.map(parse_image)
-    img_jpeg, img_id, img_width, imb_height = dataset.make_one_shot_iterator().get_next()
+    imgage_record = dataset.make_one_shot_iterator().get_next()
+    img_jpeg = imgage_record['jpeg']
+    img_id = imgage_record['id']
     print('extract features', records_path, '\n')
     jpg_data = tf.placeholder(dtype=tf.string)
     img = image_processing.process_image(jpg_data, 'train' in image_records)
@@ -185,12 +187,12 @@ def create_captions_records(records_path, image_records, captions, vocabulary, c
                     img_a, features_a = sess.run([img, features], feed_dict={jpg_data: img_jpeg_a})
 
                     context = tf.train.Features(feature={
-                        "image/image_id": _int64_feature(img_id_a),
-                        "image/features": _floats_feature(features_a.astype(np.float)[0]),
+                        "image_id": _int64_feature(img_id_a),
+                        "features": _floats_feature(features_a.astype(np.float)[0]),
                     })
                     feature_lists = tf.train.FeatureLists(feature_list={
-                        "image/caption": _bytes_feature_list([w.encode() for w in caption]),
-                        "image/caption_ids": _int64_feature_list(caption_ids)
+                        "caption": _bytes_feature_list([w.encode() for w in caption]),
+                        "caption_ids": _int64_feature_list(caption_ids)
                     })
 
                     sequence_example = tf.train.SequenceExample(

@@ -6,6 +6,7 @@
         <serverdata>
           <mappings>
             <mapping deploy="/home/user/sync/im2txt" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/usr/local/lib/python3.4/dist-packages/tensorflow" local="/usr/local/lib/python3.6/site-packages/tensorflow/" web="" />
           </mappings>
           <excludedPaths>
             <excludedPath local="true" path="data" />
