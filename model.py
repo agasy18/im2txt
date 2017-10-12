@@ -1,11 +1,14 @@
 import tensorflow as tf
+import tensorflow.contrib as contrib
+from tensorflow.python.ops.rnn_cell_impl import LSTMStateTuple
 
 
 def im22txt(features, labels, mode, params):
     initializer = tf.random_uniform_initializer(
         minval=-params['initializer_scale'],
         maxval=params['initializer_scale'])
-    # Map inception output into embedding space.
+
+    # Image Embedding
     with tf.variable_scope("image_embedding") as scope:
         image_embeddings = tf.contrib.layers.fully_connected(
             inputs=features['features'],
@@ -15,21 +18,33 @@ def im22txt(features, labels, mode, params):
             biases_initializer=None,
             scope=scope)
 
+    # Seq Embedding
     with tf.variable_scope("seq_embedding"), tf.device("/cpu:0"):
         embedding_map = tf.get_variable(
             name="map",
             shape=[params['vocab_size'], params['embedding_size']],
             initializer=initializer)
-        seq_embeddings = tf.nn.embedding_lookup(embedding_map, features['input_seq'])
+        if mode != tf.estimator.ModeKeys.PREDICT:
+            seq_embeddings = tf.nn.embedding_lookup(embedding_map, features['input_seq'])
 
-    lstm_cell = tf.contrib.rnn.BasicLSTMCell(
+    # LSTM
+    lstm_cell = contrib.rnn.BasicLSTMCell(
         num_units=params['num_lstm_units'], state_is_tuple=True)
+
+    # Dropout
     if mode == tf.estimator.ModeKeys.TRAIN:
-        lstm_cell = tf.contrib.rnn.DropoutWrapper(
+        lstm_cell = contrib.rnn.DropoutWrapper(
             lstm_cell,
             input_keep_prob=params['lstm_dropout_keep_prob'],
             output_keep_prob=params['lstm_dropout_keep_prob']
         )
+
+    # VARS
+    predict_res = None
+    train_op = None
+    total_loss = None
+    eval_metric_ops = None
+    beam_size = params['beam_size']
 
     with tf.variable_scope("lstm", initializer=initializer) as lstm_scope:
         # Feed the image embeddings to set the initial LSTM state.
@@ -39,31 +54,109 @@ def im22txt(features, labels, mode, params):
 
         # Allow the LSTM variables to be reused.
         lstm_scope.reuse_variables()
-        lstm_outputs = None
 
         if mode == tf.estimator.ModeKeys.PREDICT:
-            # TODO
+            initial_state = LSTMStateTuple(tf.tile(initial_state[0], [beam_size, 1]),
+                                           tf.tile(initial_state[1], [beam_size, 1]))
 
+            def body(time, pred_tuple, state_tuple):
+                ides, coefs = pred_tuple
+                with tf.variable_scope("seq_embedding"), tf.device("/cpu:0"):
+                    seq_embeddings = tf.nn.embedding_lookup(embedding_map, ides[-1])
 
-            # In inference mode, use concatenated states for convenient feeding and
-            # fetching.
-            tf.concat(axis=1, values=initial_state, name="initial_state")
+                # Run a single LSTM step.
+                lstm_outputs, state_tuple = lstm_cell(
+                    inputs=seq_embeddings,
+                    state=state_tuple)
 
-            # Placeholder for feeding a batch of concatenated states.
-            state_feed = tf.placeholder(dtype=tf.float32,
-                                        shape=[None, sum(lstm_cell.state_size)],
-                                        name="state_feed")
-            state_tuple = tf.split(value=state_feed, num_or_size_splits=2, axis=1)
+                # lstm_outputs = tf.reshape(lstm_outputs, [-1, lstm_cell.output_size])
 
-            # Run a single LSTM step.
-            lstm_outputs, state_tuple = lstm_cell(
-                inputs=tf.squeeze(seq_embeddings, axis=[1]),
-                state=state_tuple)
+                # TODO: Remove scope hacking by replacing contrib.layers.fully_connected with custom implantation
+                def custom_getter(getter, name, *args, **kwargs):
+                    kwargs = kwargs.copy()
+                    kwargs['reuse'] = None
+                    name = name.replace('lstm/', '')
+                    return getter(name, *args, **kwargs)
 
-            # Concatentate the resulting state.
-            tf.concat(axis=1, values=state_tuple, name="state")
+                with tf.variable_scope("logits", custom_getter=custom_getter) as logits_scope:
+                    logits = contrib.layers.fully_connected(
+                        inputs=lstm_outputs,
+                        num_outputs=params['vocab_size'],
+                        activation_fn=None,
+                        weights_initializer=initializer,
+                        scope=logits_scope)
+
+                prediction = tf.nn.softmax(logits, name="softmax")
+
+                coef, w_i = tf.nn.top_k(prediction, k=beam_size)
+
+                def repeat(x, n, shape):
+                    return tf.reshape(tf.tile(tf.reshape(x, [-1, 1]), [1, n]), shape)
+
+                coefs = repeat(coefs, beam_size, [beam_size*beam_size])
+
+                all_coefs = coefs + tf.log(tf.reshape(coef, [-1]))
+                all_seq_i = tf.transpose(tf.concat([repeat(ides, beam_size, [-1, beam_size*beam_size]),
+                                                    tf.reshape(w_i, [1, -1])], axis=0))
+
+                all_unique_coefs, idx = tf.unique(all_coefs)
+                all_unique_seq_i = tf.gather(all_seq_i, tf.unique(idx)[0])
+
+                unique_cond = tf.equal(time, 0)
+
+                all_seq_i = tf.case([(unique_cond, lambda: all_unique_seq_i)],
+                                    default=lambda: all_seq_i)
+
+                all_coefs = tf.case([(unique_cond, lambda: all_unique_coefs)],
+                                    default=lambda: all_coefs)
+
+                top_cofs, top_id = tf.nn.top_k(all_coefs, k=beam_size)
+
+                s_i = tf.gather(all_seq_i, top_id)
+                with tf.control_dependencies([
+                   # tf.Print(ides, [time + 1, tf.transpose(s_i), top_cofs], summarize=1000)
+                ]):
+                    return time + 1, (tf.transpose(s_i), top_cofs), state_tuple
+
+            def cond(i, pred_tuple, _):
+                ides, _ = pred_tuple
+                cond_1 = i < params['seq_max_len']
+                end_words = [params['end_word_index']] * beam_size
+                cond_2 = tf.reduce_any(tf.not_equal(ides[i], end_words))
+                with tf.control_dependencies([
+                    # tf.Print(ides, [ides[i], cond_2], summarize=1000)
+                ]):
+                    return tf.logical_and(cond_1, cond_2)
+
+            with tf.control_dependencies([tf.assert_equal(1, tf.shape(features['features'])[0],
+                                                          message='in PREDICT batch_size=1')]):
+                i = tf.constant(0, dtype=tf.int32, name='i')
+                initial_pred = (
+                    tf.constant([
+                        [params['start_word_index']] * beam_size
+                    ], dtype=tf.int32, name='word_indexes'),
+                    tf.constant([0.0] * beam_size, dtype=tf.float32, name='seq_coef'))
+
+                seq_len, (ides, coefs), _ = tf.while_loop(cond=cond,
+                                                          body=body,
+                                                          loop_vars=[i, initial_pred, initial_state],
+                                                          shape_invariants=[
+                                                              i.shape,
+                                                              (tf.TensorShape([None, beam_size]),
+                                                               initial_pred[1].shape),
+                                                              LSTMStateTuple(initial_state[0].shape,
+                                                                             initial_state[1].shape)
+                                                          ],
+                                                          parallel_iterations=1,
+                                                          back_prop=False)
+
+            with tf.control_dependencies([
+                # tf.Print(ides, [ides, coefs], summarize=1000)
+            ]):
+                predict_res = {'ides': tf.expand_dims(ides, 0), 'coef': tf.expand_dims(coefs, 0)}
+
         else:
-            # Run the batch of sequence embeddings through the LSTM.
+            # dynamic_rnn
             sequence_length = tf.reduce_sum(labels['mask'], 1)
             lstm_outputs, _ = tf.nn.dynamic_rnn(cell=lstm_cell,
                                                 inputs=seq_embeddings,
@@ -72,25 +165,19 @@ def im22txt(features, labels, mode, params):
                                                 dtype=tf.float32,
                                                 scope=lstm_scope)
 
-    # Stack batches vertically.
-    lstm_outputs = tf.reshape(lstm_outputs, [-1, lstm_cell.output_size])
+            # Stack batches vertically.
+            lstm_outputs = tf.reshape(lstm_outputs, [-1, lstm_cell.output_size])
 
-    with tf.variable_scope("logits") as logits_scope:
-        logits = tf.contrib.layers.fully_connected(
-            inputs=lstm_outputs,
-            num_outputs=params['vocab_size'],
-            activation_fn=None,
-            weights_initializer=initializer,
-            scope=logits_scope)
+    if mode != tf.estimator.ModeKeys.PREDICT:
 
-    prediction = None
-    train_op = None
-    total_loss = None
-    eval_metric_ops = None
-
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        prediction = tf.nn.softmax(logits, name="softmax")
-    else:
+        with tf.variable_scope("logits") as logits_scope:
+            logits = contrib.layers.fully_connected(
+                inputs=lstm_outputs,
+                num_outputs=params['vocab_size'],
+                activation_fn=None,
+                weights_initializer=initializer,
+                scope=logits_scope)
+        # LOSS
         targets = tf.reshape(labels['target_seq'], [-1])
         weights = tf.to_float(tf.reshape(labels['mask'], [-1]))
 
@@ -102,50 +189,51 @@ def im22txt(features, labels, mode, params):
                             name="batch_loss")
         tf.losses.add_loss(batch_loss)
         total_loss = tf.losses.get_total_loss()
+        if mode == tf.estimator.ModeKeys.EVAL:
+            # EVAL
+            with tf.variable_scope('perplexity', initializer=tf.constant_initializer()) as eval_scope:
+                sum_losses = tf.get_variable('sum_losses', (), trainable=False, dtype=tf.float32)
+                sum_weights = tf.get_variable('sum_weights', (), trainable=False, dtype=tf.float32)
+                perplexity = tf.get_variable('perplexity', (), trainable=False, dtype=tf.float32)
 
-        with tf.variable_scope('perplexity', initializer=tf.constant_initializer()) as eval_scope:
-            sum_losses = tf.get_variable('sum_losses', (), trainable=False, dtype=tf.float32)
-            sum_weights = tf.get_variable('sum_weights', (), trainable=False, dtype=tf.float32)
-            perplexity = tf.get_variable('perplexity', (), trainable=False, dtype=tf.float32)
+                sum_losses_update_op = tf.assign_add(sum_losses, tf.reduce_sum(losses * weights))
+                sum_weights_update_op = tf.assign_add(sum_weights, tf.reduce_sum(weights))
 
-            sum_losses_update_op = tf.assign_add(sum_losses, tf.reduce_sum(losses * weights))
-            sum_weights_update_op = tf.assign_add(sum_weights, tf.reduce_sum(weights))
+                with tf.control_dependencies([sum_losses_update_op, sum_weights_update_op]):
+                    perplexity_update_op = tf.assign(perplexity, tf.exp(sum_losses / sum_weights))
+            eval_metric_ops = {
+                'perplexity': (perplexity * 1.0, perplexity_update_op),
+                'sum_weights': (sum_weights * 1.0, sum_weights_update_op),
+                'sum_losses': (sum_losses * 1.0, sum_losses_update_op),
+            }
+        else:
+            # TRAIN
+            learning_rate = tf.constant(params['initial_learning_rate'])
+            learning_rate_decay_fn = None
+            if params['learning_rate_decay_factor'] > 0:
+                num_batches_per_epoch = (params['num_examples_per_epoch'] /
+                                         params['batch_size'])
+                decay_steps = int(num_batches_per_epoch *
+                                  params['num_epochs_per_decay'])
 
-            with tf.control_dependencies([sum_losses_update_op, sum_weights_update_op]):
-                perplexity_update_op = tf.assign(perplexity, tf.exp(sum_losses / sum_weights))
+                def learning_rate_decay_fn(lr, global_step):
+                    return tf.train.exponential_decay(
+                        lr,
+                        global_step,
+                        decay_steps=decay_steps,
+                        decay_rate=params['learning_rate_decay_factor'],
+                        staircase=True)
 
-        eval_metric_ops = {
-            'perplexity': (perplexity * 1.0, perplexity_update_op),
-            'sum_weights': (sum_weights * 1.0, sum_weights_update_op),
-            'sum_losses': (sum_losses * 1.0, sum_losses_update_op),
-        }
-
-        learning_rate = tf.constant(params['initial_learning_rate'])
-        learning_rate_decay_fn = None
-        if params['learning_rate_decay_factor'] > 0:
-            num_batches_per_epoch = (params['num_examples_per_epoch'] /
-                                     params['batch_size'])
-            decay_steps = int(num_batches_per_epoch *
-                              params['num_epochs_per_decay'])
-
-            def learning_rate_decay_fn(lr, global_step):
-                return tf.train.exponential_decay(
-                    lr,
-                    global_step,
-                    decay_steps=decay_steps,
-                    decay_rate=params['learning_rate_decay_factor'],
-                    staircase=True)
-
-        train_op = tf.contrib.layers.optimize_loss(
-            loss=total_loss,
-            global_step=tf.train.get_global_step(),
-            learning_rate=learning_rate,
-            optimizer=params['optimizer'],
-            clip_gradients=params['clip_gradients'],
-            learning_rate_decay_fn=learning_rate_decay_fn)
+            train_op = contrib.layers.optimize_loss(
+                loss=total_loss,
+                global_step=tf.train.get_global_step(),
+                learning_rate=learning_rate,
+                optimizer=params['optimizer'],
+                clip_gradients=params['clip_gradients'],
+                learning_rate_decay_fn=learning_rate_decay_fn)
 
     return tf.estimator.EstimatorSpec(mode=mode,
-                                      predictions=prediction,
+                                      predictions=predict_res,
                                       loss=total_loss,
                                       train_op=train_op,
                                       eval_metric_ops=eval_metric_ops)

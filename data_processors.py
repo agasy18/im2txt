@@ -18,14 +18,14 @@ class Vocabulary(object):
     def __init__(self, words):
         self._words = words
         self._vocab = dict((w, i) for i, w in enumerate(words))
-        self._unk_id = len(words)
+        self.unk_id = len(words)
 
     def word_to_id(self, word):
         """Returns the integer id of a word string."""
         if word in self._vocab:
             return self._vocab[word]
         else:
-            return self._unk_id
+            return self.unk_id
 
     def id_to_word(self, word_id):
         """Returns the word string of an integer word id."""
@@ -158,7 +158,6 @@ def parse_caption(sequence_example_serialized):
 
 
 def create_captions_records(records_path, image_records, captions, vocabulary, cnn_model):
-    tf.reset_default_graph()
     dataset = contrib.data.TFRecordDataset([image_records])
     dataset = dataset.map(parse_image)
     imgage_record = dataset.make_one_shot_iterator().get_next()

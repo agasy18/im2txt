@@ -1,45 +1,52 @@
-import tensorflow as tf
-import model
-from os import path, listdir, makedirs
-import data_processors
 from argparse import ArgumentParser
+from os import path, listdir, makedirs
+import tensorflow as tf
+import numpy as np
+from tensorflow.contrib.layers import OPTIMIZER_CLS_NAMES
 
+import data_processors
+import model
 from utlis import call_program
 
 parser = ArgumentParser()
 parser.add_argument('mode', choices=['train', 'eval', 'test'])
 
-parser.add_argument('--test_urls', default='', )
+parser.add_argument('--test_urls', default=None, help=', separated')
 parser.add_argument('--records_dir', default='records', help='directory for records')
 parser.add_argument('--model_dir', default='model')
 parser.add_argument('--model_index', default=None)
-parser.add_argument('--keep_model_max', default=5)
+parser.add_argument('--keep_model_max', type=int, default=5)
 
 parser.add_argument('--train_prefix', default='train2014')
 parser.add_argument('--val_prefix', default='val2014')
 
+parser.add_argument('--cnn_model', default='data/inception_v3.ckpt')
 parser.add_argument('--image_records', default='images')
 parser.add_argument('--vocabulary', default='vocabulary.txt')
 parser.add_argument('--features', default='features')
 
-parser.add_argument('--max_train_iters', default=10000000)
-parser.add_argument('--keep_checkpoint_max', default=10)
-parser.add_argument('--max_train_epochs', default=3)
-parser.add_argument('--save_checkpoints_steps', default=10000)
-parser.add_argument('--log_step_count_steps', default=10000)
-parser.add_argument('--num_examples_per_epoch', default=586363)
-parser.add_argument('--num_examples_per_eval', default=40504)
+parser.add_argument('--max_train_iters', type=int, default=10000000)
+parser.add_argument('--keep_checkpoint_max', type=int, default=10)
+parser.add_argument('--max_train_epochs', type=int, default=80)
+parser.add_argument('--save_checkpoints_steps', type=int, default=3000)
+parser.add_argument('--log_step_count_steps', type=int, default=1000)
+parser.add_argument('--num_examples_per_epoch', type=int, default=586363)
+parser.add_argument('--num_examples_per_eval', type=int, default=40504)
 
-parser.add_argument('--num_lstm_units', default=512)
-parser.add_argument('--embedding_size', default=512)
-parser.add_argument('--lstm_dropout_keep_prob', default=0.7)
-parser.add_argument('--initializer_scale', default=0.08)
+parser.add_argument('--num_lstm_units', type=int, default=512)
+parser.add_argument('--embedding_size', type=int, default=512)
+parser.add_argument('--lstm_dropout_keep_prob', type=float, default=0.7)
+parser.add_argument('--initializer_scale', type=float, default=0.08)
 parser.add_argument('--batch_size', type=int, default=32)
-parser.add_argument('--initial_learning_rate', default=2.0)
-parser.add_argument('--learning_rate_decay_factor', default=0.5)
-parser.add_argument('--num_epochs_per_decay', default=8.0)
-parser.add_argument('--optimizer', default='SGD')
-parser.add_argument('--clip_gradients', default=5.0)
+parser.add_argument('--initial_learning_rate', type=float,  default=2.0)
+parser.add_argument('--learning_rate_decay_factor', type=float, default=0.5)
+parser.add_argument('--num_epochs_per_decay', type=float, default=8.0)
+parser.add_argument('--optimizer', default='SGD', choices=list(OPTIMIZER_CLS_NAMES.keys()))
+parser.add_argument('--clip_gradients', type=float, default=5.0)
+parser.add_argument('--start_word', default='<S>')
+parser.add_argument('--end_word', default='</S>')
+parser.add_argument('--seq_max_len', type=int, default=100)
+parser.add_argument('--beam_size', type=int, default=1)
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -59,7 +66,11 @@ model_params = {
     'learning_rate_decay_factor': args.learning_rate_decay_factor,
     'optimizer': args.optimizer,
     'clip_gradients': args.clip_gradients,
-    'vocab_size': len(voc)
+    'vocab_size': len(voc),
+    'end_word_index': voc.word_to_id(args.end_word),
+    'start_word_index': voc.word_to_id(args.start_word),
+    'seq_max_len': args.seq_max_len,
+    'beam_size': args.beam_size
 }
 
 model_index = args.model_index
@@ -141,7 +152,33 @@ def train_eval_input_fn(prefix):
 
 
 def test_input_fn():
-    pass
+    import image_processing
+    import urllib.request
+    import tensorflow.contrib.data as tfdata
+    import image_embedding
+
+    if args.test_urls:
+        jpegs = [urllib.request.urlopen(url).read()
+                 for url in args.test_urls.split(',')]
+
+        with tf.Graph().as_default() as g:
+            jpeg = tf.placeholder(dtype=tf.string)
+
+            image = image_processing.process_image(jpeg, False)
+
+            features = image_embedding.inception_v3([image], False, False)
+
+            saver = tf.train.Saver(tf.get_collection(
+                tf.GraphKeys.GLOBAL_VARIABLES, scope="InceptionV3"))
+            with tf.Session(graph=g) as sess:
+                saver.restore(sess, args.cnn_model)
+                features_list = [sess.run(features, feed_dict={jpeg: j}) for j in jpegs]
+
+        dataset = tfdata.Dataset.from_tensor_slices(np.array(features_list))
+
+        return {'features': dataset.make_one_shot_iterator().get_next()}, None
+    else:
+        raise Exception('pass test_urls')
 
 
 if args.mode == 'train':
@@ -149,4 +186,6 @@ if args.mode == 'train':
 elif args.mode == 'eval':
     estimator.evaluate(input_fn=lambda: train_eval_input_fn(args.val_prefix), steps=args.num_examples_per_eval)
 else:
-    pass
+    for name, pred in zip(args.test_urls.split(','), estimator.predict(input_fn=test_input_fn)):
+        print(name, '\n', '\n'.join('[{}] | {}'.format(coef, ' '.join([voc.id_to_word(i) for i in ides]))
+              for coef, ides in zip(pred['coef'], np.transpose(pred['ides']))))

@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from os import path, makedirs
+import tensorflow as tf
 
 from data_processors import create_image_records, create_vocab, tokenize_captions, load_vocab, create_captions_records
 from utlis import call_program, working_dir, gs_download
@@ -94,6 +95,7 @@ for image_dir, caption_json in [(args.train_image_dir, args.train_caption_json),
     img_records = path.join(image_records, image_dir + '.tfrecords')
 
     if not path.isfile(records_path):
+        tf.reset_default_graph()
         create_captions_records(records_path=records_path,
                                 image_records=img_records,
                                 captions=tokenized_captions(caption_json),
