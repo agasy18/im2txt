@@ -14,7 +14,7 @@ parser.add_argument('mode', choices=['train', 'eval', 'test'])
 parser.add_argument('--test_urls', default=None, help=', separated')
 parser.add_argument('--records_dir', default='records', help='directory for records')
 parser.add_argument('--model_dir', default='model')
-parser.add_argument('--model_index', default=None)
+parser.add_argument('--model_name', default=None)
 parser.add_argument('--keep_model_max', type=int, default=5)
 
 parser.add_argument('--train_prefix', default='train2014')
@@ -73,7 +73,7 @@ model_params = {
     'beam_size': args.beam_size
 }
 
-model_index = args.model_index
+model_name = args.model_name
 
 makedirs(args.model_dir, exist_ok=True)
 
@@ -91,16 +91,16 @@ def model_dir(mx, rm=False):
     return m
 
 
-if model_index is None:
+if model_name is None:
     ms = sorted([int(d) for d in listdir(args.model_dir) if d.isdecimal()])
     if not len(ms):
-        model_index = 0
+        model_name = 0
     else:
-        model_index = ms[-1] + 1 if args.mode == 'train' else ms[-1]
+        model_name = ms[-1] + 1 if args.mode == 'train' else ms[-1]
         [model_dir(d, rm=True) for d in ms[:-args.keep_model_max]]
 
 estimator = tf.estimator.Estimator(model_fn=model.im22txt,
-                                   model_dir=model_dir(model_index),
+                                   model_dir=model_dir(model_name),
                                    params=model_params,
                                    config=tf.estimator.RunConfig().replace(
                                        save_checkpoints_steps=args.save_checkpoints_steps,
@@ -130,6 +130,7 @@ def train_eval_input_fn(prefix):
 
     dataset = dataset.map(parse_caption, num_threads=4, output_buffer_size=args.batch_size * 4)
     dataset = dataset.repeat(1000000 if prefix == args.val_prefix else args.max_train_epochs)
+    dataset = dataset.shuffle(buffer_size=100000)
     dataset = dataset.padded_batch(args.batch_size, padded_shapes=({'features': [2048], 'input_seq': [None]},
                                                                    {'target_seq': [None], 'mask': [None]}))
 
@@ -187,5 +188,5 @@ elif args.mode == 'eval':
     estimator.evaluate(input_fn=lambda: train_eval_input_fn(args.val_prefix), steps=args.num_examples_per_eval)
 else:
     for name, pred in zip(args.test_urls.split(','), estimator.predict(input_fn=test_input_fn)):
-        print(name, '\n', '\n'.join('[{}] | {}'.format(coef, ' '.join([voc.id_to_word(i) for i in ides]))
+        print('![](', name, ')\n', '\n'.join('`{} ({})`\n'.format(' '.join([voc.id_to_word(i) for i in ides]), coef)
               for coef, ides in zip(pred['coef'], np.transpose(pred['ides']))))
