@@ -30,7 +30,7 @@ def im22txt(features, labels, mode, params):
 
     with tf.variable_scope("readonly_component") as scope:
         readonly_component = contrib.layers.fully_connected(
-            inputs=features['features'],
+            inputs=image_embeddings,
             num_outputs=params['embedding_size'],
             activation_fn=None,
             weights_initializer=initializer,
