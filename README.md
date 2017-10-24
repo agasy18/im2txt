@@ -15,7 +15,7 @@ Full text available at: http://arxiv.org/abs/1609.06647
 **Some key elements was changed:*
 
 *Advantages*
-* CNN removed from training loop (train 150x is faster)
+* CNN removed from training loop (train is ~150 times faster)
 * Less memory needed for same batch
 * Model written with `tf.estimator.Estimator` and `tf.dataset.Dataset`
 
