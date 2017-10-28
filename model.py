@@ -28,14 +28,7 @@ def im22txt(features, labels, mode, params):
         if mode != tf.estimator.ModeKeys.PREDICT:
             seq_embeddings = tf.nn.embedding_lookup(embedding_map, features['input_seq'])
 
-    with tf.variable_scope("readonly_component") as scope:
-        readonly_component = contrib.layers.fully_connected(
-            inputs=features['features'],
-            num_outputs=params['embedding_size'],
-            activation_fn=None,
-            weights_initializer=initializer,
-            biases_initializer=None,
-            scope=scope)
+    readonly_component = image_embeddings
 
     # LSTM
     lstm_cell = LSTMRCell(num_units=params['num_lstm_units'], readonly_memory=readonly_component)
