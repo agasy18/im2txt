@@ -15,7 +15,7 @@ Full text available at: http://arxiv.org/abs/1609.06647
 **Some key elements was changed:*
 
 *Advantages*
-* CNN removed from training loop (train 150x is faster)
+* CNN removed from training loop (train is ~150 times faster)
 * Less memory needed for same batch
 * Model written with `tf.estimator.Estimator` and `tf.dataset.Dataset`
 
@@ -29,16 +29,32 @@ Full text available at: http://arxiv.org/abs/1609.06647
 python3 preprocess.py
 ```
 
-##Training 
+## Training 
 
 150 epoch training will take 8h with 1024 bath on GTX1080 
 ```bash
 python3 im2txt.py train --optimizer Adagrad  --initial_learning_rate 4 --num_epochs_per_decay 20  --batch_size 1024 --max_train_epochs 150 --save_checkpoints_steps 1000 --log_step_count_steps 500
 ```
+For other options call
+```bash
+python3 im2txt.py --help
+```
+
 
 Train loss
 ![Train loss](doc/Screen%20Shot%202017-10-21%20at%201.03.46%20PM.png)
 
+
+## Evaluation
+
+```bash
+python3 im2txt.py eval
+```
+
+For other options call
+```bash
+python3 im2txt.py --help
+```
 
 ## Testing
 Test last model (just past output in Markdown editor)
@@ -51,6 +67,10 @@ force run on CPU
 CUDA_VISIBLE_DEVICES=""; python3 im2txt.py test ...
 ``` 
 
+
+```bash
+python3 im2txt.py 
+```
 
 ![]( https://cdn132.picsart.com/245236991011202.jpg )
  `<S> a woman in a dress standing on a street corner . </S> (-11.629340171813965)`
