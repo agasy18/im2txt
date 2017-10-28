@@ -13,8 +13,8 @@ parser.add_argument('mode', choices=['train', 'eval', 'test'])
 
 parser.add_argument('--test_urls', default=None, help=', separated')
 parser.add_argument('--records_dir', default='records', help='directory for records')
-parser.add_argument('--model_dir', default='model')
-parser.add_argument('--model_name', default=None)
+parser.add_argument('--model_dir', default='model', help="dir for storing generated model files and logs")
+parser.add_argument('--model_name', default=None, help="load specified model")
 parser.add_argument('--keep_model_max', type=int, default=5)
 
 parser.add_argument('--train_prefix', default='train2014')
@@ -129,8 +129,9 @@ def train_eval_input_fn(prefix):
         return {'features': c['features'], 'input_seq': input_seq}, {'target_seq': target_seq, 'mask': indicator}
 
     dataset = dataset.map(parse_caption, num_threads=4, output_buffer_size=args.batch_size * 4)
-    dataset = dataset.repeat(1000000 if prefix == args.val_prefix else args.max_train_epochs)
-    dataset = dataset.shuffle(buffer_size=100000)
+    if prefix == args.train_prefix:
+        dataset = dataset.repeat(args.max_train_epochs)
+        dataset = dataset.shuffle(buffer_size=100000)
     dataset = dataset.padded_batch(args.batch_size, padded_shapes=({'features': [2048], 'input_seq': [None]},
                                                                    {'target_seq': [None], 'mask': [None]}))
 
