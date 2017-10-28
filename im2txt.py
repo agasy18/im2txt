@@ -129,8 +129,9 @@ def train_eval_input_fn(prefix):
         return {'features': c['features'], 'input_seq': input_seq}, {'target_seq': target_seq, 'mask': indicator}
 
     dataset = dataset.map(parse_caption, num_threads=4, output_buffer_size=args.batch_size * 4)
-    dataset = dataset.repeat(1000000 if prefix == args.val_prefix else args.max_train_epochs)
-    dataset = dataset.shuffle(buffer_size=100000)
+    if prefix == args.train_prefix:
+        dataset = dataset.repeat(args.max_train_epochs)
+        dataset = dataset.shuffle(buffer_size=100000)
     dataset = dataset.padded_batch(args.batch_size, padded_shapes=({'features': [2048], 'input_seq': [None]},
                                                                    {'target_seq': [None], 'mask': [None]}))
 
