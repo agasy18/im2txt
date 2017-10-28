@@ -13,8 +13,8 @@ parser.add_argument('mode', choices=['train', 'eval', 'test'])
 
 parser.add_argument('--test_urls', default=None, help=', separated')
 parser.add_argument('--records_dir', default='records', help='directory for records')
-parser.add_argument('--model_dir', default='model')
-parser.add_argument('--model_name', default=None)
+parser.add_argument('--model_dir', default='model', help="dir for storing generated model files and logs")
+parser.add_argument('--model_name', default=None, help="load specified model")
 parser.add_argument('--keep_model_max', type=int, default=5)
 
 parser.add_argument('--train_prefix', default='train2014')
