@@ -10,6 +10,7 @@
           <excludedPaths>
             <excludedPath local="true" path="data" />
             <excludedPath path="data" />
+            <excludedPath path="model" />
           </excludedPaths>
         </serverdata>
       </paths>

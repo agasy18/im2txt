@@ -1,6 +1,4 @@
 import tensorflow as tf
-import tensorflow.contrib as contrib
-
 
 def eval_perplexity(weights, losses):
     with tf.variable_scope('perplexity',

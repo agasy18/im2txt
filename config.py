@@ -7,17 +7,15 @@ from functools import partial
 
 import feature2seq
 
-keep_model_max = 5
-
 max_train_iters = 10000000
 keep_checkpoint_max = 10
-max_train_epochs = 80
+max_train_epochs = 100
 save_checkpoints_steps = 3000
 log_step_count_steps = 1000
 num_examples_per_epoch = 586363
 num_examples_per_eval = 40504
 
-batch_size = 32
+batch_size = 1500
 initial_learning_rate = 2.0
 learning_rate_decay_factor = 0.5
 num_epochs_per_decay = 8.0
@@ -33,6 +31,9 @@ lstm_dropout_keep_prob = 0.7
 
 data_dir = 'data'
 feature_detector_data_dir = 'data/inception'
+
+project_ignore = [data_dir, feature_detector_data_dir]
+
 
 train_dataset = mscoco.MSCoco(cache_dir=data_dir,
                               images_gs_url='gs://images.cocodataset.org/train2014',

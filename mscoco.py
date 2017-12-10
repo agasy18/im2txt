@@ -1,9 +1,8 @@
 import json
 from collections import Counter
-from os import path, rename
+from os import path, rename, makedirs
 
 import tensorflow as tf
-import tensorflow.contrib as contrib
 
 from utlis import call_program, working_dir, gs_download, bytes_feature_list, int64_feature, \
     int64_feature_list, progress, bytes_feature, map_dataset_to_record
@@ -83,6 +82,7 @@ class MSCoco:
         print("Words in vocabulary:", len(word_counts))
 
         # Write out the word counts file.
+        makedirs(path.dirname(self.vocabulary_file), exist_ok=True)
         with tf.gfile.FastGFile(self.vocabulary_file, "w") as f:
             f.write("\n".join(["%s %d" % word_count for word_count in word_counts]))
 
@@ -153,7 +153,7 @@ class MSCoco:
         with tf.Session() as sess, tf.python_io.TFRecordWriter(self.images_records_path + '_tmp') as writer:
             for i, img in enumerate(images):
                 try:
-                    with tf.gfile.FastGFile(path.join(image_dir, img['file_name']), "rb") as f:
+                    with tf.gfile.FastGFile(path.join(self.image_dir, img['file_name']), "rb") as f:
                         encoded_image = f.read()
                     decode_jpeg(sess, encoded_image)
                     features = {
@@ -169,7 +169,7 @@ class MSCoco:
         rename(self.images_records_path + '_tmp', self.images_records_path)
 
     @property
-    def image_dataset(self) -> contrib.data.Dataset:
+    def image_dataset(self) -> tf.data.Dataset:
         if not path.isfile(self.images_records_path):
             self.create_image_records()
 
@@ -181,11 +181,10 @@ class MSCoco:
                 "height": tf.FixedLenFeature((), tf.int64, default_value=-1),
             }
             return tf.parse_single_example(example_serialized, features)
-
-        return contrib.data.TFRecordDataset([self.images_records_path]).map(_parse_image)
+        return tf.data.TFRecordDataset([self.images_records_path]).map(_parse_image)
 
     @property
-    def captions_dataset(self) -> contrib.data.Dataset:
+    def captions_dataset(self) -> tf.data.Dataset:
         if not path.isfile(self.caption_records_path):
             self.create_captions_records()
 
@@ -212,7 +211,7 @@ class MSCoco:
                        'mask': indicator
                    }
 
-        return contrib.data.TFRecordDataset([self.caption_records_path]).map(parse_caption)
+        return tf.data.TFRecordDataset([self.caption_records_path]).map(parse_caption)
 
     def create_captions_records(self):
         print('create_captions_records', self.caption_json_path, '\n')

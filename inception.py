@@ -9,8 +9,6 @@ slim = tf.contrib.slim
 
 
 class Inception:
-    __slots__ = "_model_path"
-
     def __init__(self, cache_dir, url, tar, model_file):
         self.url = url
         self.cache_dir = path.abspath(cache_dir)
@@ -110,7 +108,7 @@ class Inception:
         if not path.isfile(self._model_path):
             with working_dir(self.cache_dir):
                 call_program(['wget', '-nc', self.url])
-                call_program(['tar', '-xvf', self.model_path, '-C', './'])
+                call_program(['tar', '-xvf', self.tar, '-C', './'])
         return self._model_path
 
     def load(self, sess):
@@ -119,60 +117,14 @@ class Inception:
 
     def build(self, images, mode, trainable, **kwargs):
         return self.inception_v3(images, trainable=trainable, is_training=tf.estimator.ModeKeys.TRAIN == mode,
-                                 **kwargs)
+                                 **kwargs),
 
-
-
-
-inputs = {}
-
-
-def train_eval_input_fn(prefix):
-    if prefix in inputs:
-        return inputs[prefix]
-
-    dataset = tf.contrib.data.TFRecordDataset([path.join(args.records_dir, args.features, prefix + '.tfrecords')])
-
-    def parse_caption(sequence_example_serialized):
-        c, s = data_processors.parse_caption(sequence_example_serialized)
-        caption = tf.cast(s['caption_ids'], tf.int32)
-        caption_length = tf.shape(caption)[0]
-        input_length = tf.expand_dims(tf.subtract(caption_length, 1), 0)
-
-        input_seq = tf.slice(caption, [0], input_length)
-        target_seq = tf.slice(caption, [1], input_length)
-        indicator = tf.ones(input_length, dtype=tf.int32)
-        return {'features': c['features'], 'input_seq': input_seq}, {'target_seq': target_seq, 'mask': indicator}
-
-    dataset = dataset.map(parse_caption, num_threads=4, output_buffer_size=args.batch_size * 4)
-    if prefix == args.train_prefix:
-        dataset = dataset.repeat(args.max_train_epochs)
-        dataset = dataset.shuffle(buffer_size=100000)
-    dataset = dataset.padded_batch(args.batch_size, padded_shapes=({'features': [2048], 'input_seq': [None]},
-                                                                   {'target_seq': [None], 'mask': [None]}))
-
-    def batch_selector(i, t):
-        return tf.equal(tf.shape(i['input_seq'])[0], args.batch_size)
-
-    dataset = dataset.filter(batch_selector)
-
-    def batch_reshape(inp, tar):
-        for i in [inp, tar]:
-            for key in i:
-                e = i[key]
-                i[key] = tf.reshape(e, [args.batch_size] + [s if s is not None else -1 for s in e.shape[1:].as_list()])
-        return inp, tar
-
-    dataset = dataset.map(batch_reshape)
-
-    inputs[prefix] = dataset.make_one_shot_iterator().get_next()
-    return inputs[prefix]
 
 
 # def test_input_fn():
 #     import image_processing
 #     import urllib.request
-#     import tensorflow.contrib.data as tfdata
+#     import tensorflow.tf.data as tfdata
 #     import image_embedding
 #
 #     if args.test_urls:

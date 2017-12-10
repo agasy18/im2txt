@@ -1,17 +1,21 @@
 from argparse import ArgumentParser
-from os import path, listdir, makedirs
+from os import path, listdir, makedirs, environ
 import tensorflow as tf
 import numpy as np
+import time
+import sys
+
 import config
 import eval_utils
-from utlis import call_program
+from utlis import call_program, working_dir
+
 
 parser = ArgumentParser()
 parser.add_argument('mode', choices=['train', 'eval', 'test'])
 
-parser.add_argument('--test_urls', default=None, help=', separated')
 parser.add_argument('--model_dir', default='model', help="dir for storing generated model files and logs")
 parser.add_argument('--model_name', default=None, help="load specified model")
+parser.add_argument('--keep_model_max', type=int, default=5)
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -24,14 +28,27 @@ makedirs(args.model_dir, exist_ok=True)
 
 def model_dir(mx, rm=False):
     m = path.join(args.model_dir, str(mx))
-    if rm:
+    if rm and path.exists(m):
         print('remove', m)
         call_program(['rm', '-rf', m])
+        return
     elif path.isdir(m):
         print('load', m)
     else:
         print('create', m)
         makedirs(m)
+
+    project_ignore = [args.model_dir] + config.project_ignore
+    bk_dir = path.join(m, 'run', time.strftime("%Y%m%d-%H%M%S"))
+    with working_dir(bk_dir, True), open('env', 'w') as ef, open('args', 'w') as af:
+        ef.write(str(environ))
+        af.write(' '.join(sys.argv))
+        af.write(' '.join(sys.argv))
+    for d in listdir():
+        if d in project_ignore:
+            continue
+        call_program(['cp', '-r', d, bk_dir])
+
     return m
 
 
@@ -42,7 +59,6 @@ if model_name is None:
     else:
         model_name = ms[-1] + 1 if args.mode == 'train' else ms[-1]
         [model_dir(d, rm=True) for d in ms[:-args.keep_model_max]]
-
 
 
 def test_input_fn():
@@ -82,9 +98,11 @@ estimator = tf.estimator.Estimator(model_fn=im2txt,
                                    ))
 
 if args.mode == 'train':
-    estimator.train(input_fn=config.train_input_fn)
+    in_f = config.train_input_fn()
+    estimator.train(input_fn=lambda: in_f)
 elif args.mode == 'eval':
-    estimator.evaluate(input_fn=lambda: config.eval_input_fn, steps=config.num_examples_per_eval)
+    in_f = config.eval_input_fn()
+    estimator.evaluate(input_fn=lambda: in_f, steps=config.num_examples_per_eval)
 else:
     for name, pred in zip(args.test_urls.split(','), estimator.predict(input_fn=test_input_fn)):
         print('![](', name, ')\n',
