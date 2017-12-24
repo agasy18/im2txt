@@ -32,7 +32,7 @@ def input_fn(dataset, feature_extuctor, is_training, cache_dir, batch_size, max_
             d = tf.data.Dataset.zip((fd, cd)).map(merge, 4)
             if is_training:
                 d = d.repeat(max_train_epochs)
-                d = d.shuffle(buffer_size=100000)
+                d = d.shuffle(buffer_size=batch_size*2)
             d = d.padded_batch(batch_size, padded_shapes=({'features': [feature_size], 'input_seq': [None]},
                                                           {'target_seq': [None], 'mask': [None]}))
 
