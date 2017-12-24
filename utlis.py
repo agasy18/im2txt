@@ -78,19 +78,6 @@ def gs_download(url, d_name=None):
     return d_name
 
 
-class partial_with_working_dir(functools_partial):
-    __slots__ = "wd"
-
-    def __new__(*args, **keywords):
-        self = super(functools_partial).__new__(*args, **keywords)
-        self.wd = getcwd()
-        return self
-
-    def __call__(*args, **keywords):
-        with working_dir(args[0].wd):
-            return super(functools_partial).__call__(*args, **keywords)
-
-
 def int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 

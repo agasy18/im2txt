@@ -14,42 +14,45 @@ def input_fn(dataset, feature_extuctor, is_training, cache_dir, batch_size, max_
         if not path.isfile(cache_file_name):
             create_feature_records(dataset.image_dataset, feature_extuctor, is_training)
 
-        fd, feature_size = feature_dataset()
-        cd = dataset.captions_dataset()
+    def input_f():
+        with working_dir(cache_dir, True):
 
-        def merge(e):
-            f, c = e
-            return {
-                       'features': f['features'],
-                       'input_seq': c['input_seq']
-                   }, {
-                       'target_seq': c['target_seq'],
-                       'mask': c['mask']
-                   }
+            fd, feature_size = feature_dataset()
+            cd = dataset.captions_dataset
 
-        d = tf.data.Dataset.zip(fd, cd).map(merge, num_threads=4, output_buffer_size=batch_size * 4)
-        if is_training:
-            d = d.repeat(max_train_epochs)
-            d = d.shuffle(buffer_size=100000)
-        d = d.padded_batch(batch_size, padded_shapes=({'features': [feature_size], 'input_seq': [None]},
-                                                      {'target_seq': [None], 'mask': [None]}))
+            def merge(f, c):
+                return {
+                           'features': f['features'],
+                           'input_seq': c['input_seq']
+                       }, {
+                           'target_seq': c['target_seq'],
+                           'mask': c['mask']
+                       }
 
-        def batch_selector(i, t):
-            return tf.equal(tf.shape(i['input_seq'])[0], batch_size)
+            d = tf.data.Dataset.zip((fd, cd)).map(merge, 4)
+            if is_training:
+                d = d.repeat(max_train_epochs)
+                d = d.shuffle(buffer_size=100000)
+            d = d.padded_batch(batch_size, padded_shapes=({'features': [feature_size], 'input_seq': [None]},
+                                                          {'target_seq': [None], 'mask': [None]}))
 
-        d = d.filter(batch_selector)
+            def batch_selector(i, t):
+                return tf.equal(tf.shape(i['input_seq'])[0], batch_size)
 
-        def batch_reshape(inp, tar):
-            for i in [inp, tar]:
-                for key in i:
-                    e = i[key]
-                    i[key] = tf.reshape(e,
-                                        [batch_size] + [s if s is not None else -1 for s in e.shape[1:].as_list()])
-            return inp, tar
+            d = d.filter(batch_selector)
 
-        d = d.map(batch_reshape)
+            def batch_reshape(inp, tar):
+                for i in [inp, tar]:
+                    for key in i:
+                        e = i[key]
+                        i[key] = tf.reshape(e,
+                                            [batch_size] + [s if s is not None else -1 for s in e.shape[1:].as_list()])
+                return inp, tar
 
-        return d.make_one_shot_iterator().get_next()
+            d = d.map(batch_reshape).prefetch(10)
+
+            return d.make_one_shot_iterator().get_next()
+    return input_f
 
 
 def feature_dataset():
@@ -65,7 +68,7 @@ def feature_dataset():
         }
         return tf.parse_single_example(example_serialized, features)
 
-    return tf.data.TFRecordDataset([cache_file_name]).map(_parse), feature_size
+    return tf.data.TFRecordDataset([path.abspath(cache_file_name)]).map(_parse), feature_size
 
 
 def create_feature_records(dataset, feature_extuctor, is_training):

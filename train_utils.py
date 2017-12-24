@@ -22,7 +22,8 @@ def optimize_loss(total_loss,
                   learning_rate_decay_factor,
                   clip_gradients,
                   batch_size,
-                  optimizer):
+                  optimizer,
+                  summaries):
     learning_rate = tf.constant(initial_learning_rate)
     learning_rate_decay_fn = None
     if learning_rate_decay_factor > 0:
@@ -44,4 +45,5 @@ def optimize_loss(total_loss,
         learning_rate=learning_rate,
         optimizer=optimizer,
         clip_gradients=clip_gradients,
+        summaries=summaries,
         learning_rate_decay_fn=learning_rate_decay_fn)

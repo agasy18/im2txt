@@ -18,6 +18,8 @@ def feature2seq(features,
         maxval=initializer_scale
     )
 
+    # features = tf.Print(features, [input_seq[0], target_seq[0], mask[0], features[0]], summarize=10000)
+
     # Image Embedding
     with tf.variable_scope("image_embedding") as scope:
         image_embeddings = tf.contrib.layers.fully_connected(

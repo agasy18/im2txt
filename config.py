@@ -13,13 +13,12 @@ max_train_epochs = 100
 save_checkpoints_steps = 3000
 log_step_count_steps = 1000
 num_examples_per_epoch = 586363
-num_examples_per_eval = 40504
 
-batch_size = 1500
-initial_learning_rate = 2.0
+batch_size = 1000
+initial_learning_rate = 0.001
 learning_rate_decay_factor = 0.5
 num_epochs_per_decay = 8.0
-optimizer = 'SGD'
+optimizer = 'Adagrad'
 clip_gradients = 5.0
 seq_max_len = 100
 beam_size = 1
@@ -82,7 +81,14 @@ optimize_loss = partial(train_utils.optimize_loss,
                         learning_rate_decay_factor=learning_rate_decay_factor,
                         clip_gradients=clip_gradients,
                         batch_size=batch_size,
-                        optimizer=optimizer)
+                        optimizer=optimizer,
+                        summaries=[
+    "learning_rate",
+    "loss",
+    "gradients",
+    "gradient_norm",
+    "global_gradient_norm",
+])
 
 eval_input_fn = partial(train_eval_inputs.input_fn,
                         dataset=eval_dataset,

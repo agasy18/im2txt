@@ -68,7 +68,7 @@ def test_input_fn():
 def im2txt(features, labels, mode):
     targets, logits, weights = config.seq_generator(features=features['features'],
                                                     input_seq=features['input_seq'],
-                                                    target_seq=labels['labels'],
+                                                    target_seq=labels['target_seq'],
                                                     mask=labels['mask'],
                                                     mode=mode)
 
@@ -99,10 +99,10 @@ estimator = tf.estimator.Estimator(model_fn=im2txt,
 
 if args.mode == 'train':
     in_f = config.train_input_fn()
-    estimator.train(input_fn=lambda: in_f)
+    estimator.train(input_fn=in_f)
 elif args.mode == 'eval':
     in_f = config.eval_input_fn()
-    estimator.evaluate(input_fn=lambda: in_f, steps=config.num_examples_per_eval)
+    estimator.evaluate(input_fn=in_f, steps=config.num_examples_per_eval)
 else:
     for name, pred in zip(args.test_urls.split(','), estimator.predict(input_fn=test_input_fn)):
         print('![](', name, ')\n',
