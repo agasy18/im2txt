@@ -8,10 +8,12 @@ import sys
 import config
 import eval_utils
 from utlis import call_program, working_dir
+from tensorflow.python import debug as tf_debug
 
 
 parser = ArgumentParser()
 parser.add_argument('mode', choices=['train', 'eval', 'test'])
+parser.add_argument('--debug', action='store_true')
 
 parser.add_argument('--model_dir', default='model', help="dir for storing generated model files and logs")
 parser.add_argument('--model_name', default=None, help="load specified model")
@@ -96,10 +98,18 @@ estimator = tf.estimator.Estimator(model_fn=im2txt,
                                        keep_checkpoint_max=config.keep_checkpoint_max,
                                        log_step_count_steps=config.log_step_count_steps
                                    ))
+hooks = []
+if args.debug:
+    hooks.append(tf_debug.LocalCLIDebugHook())
 
 if args.mode == 'train':
     in_f = config.train_input_fn()
-    estimator.train(input_fn=in_f)
+
+
+
+
+
+    estimator.train(input_fn=in_f, hooks=hooks)
 elif args.mode == 'eval':
     in_f = config.eval_input_fn()
     estimator.evaluate(input_fn=in_f, steps=config.num_examples_per_eval)
