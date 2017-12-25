@@ -10,7 +10,6 @@ import eval_utils
 from utlis import call_program, working_dir
 from tensorflow.python import debug as tf_debug
 
-
 parser = ArgumentParser()
 parser.add_argument('mode', choices=['train', 'eval', 'test'])
 parser.add_argument('--debug', action='store_true')
@@ -104,10 +103,6 @@ if args.debug:
 
 if args.mode == 'train':
     in_f = config.train_input_fn()
-
-
-
-
 
     estimator.train(input_fn=in_f, hooks=hooks)
 elif args.mode == 'eval':

@@ -4,8 +4,9 @@ from os import path, rename, makedirs
 
 import tensorflow as tf
 
-from utlis import call_program, working_dir, gs_download, bytes_feature_list, int64_feature, \
-    int64_feature_list, progress, bytes_feature, map_dataset_to_record
+from utlis import call_program, working_dir, gs_download, progress
+from record import bytes_feature_list, int64_feature, \
+    int64_feature_list, bytes_feature, map_dataset_to_record
 
 
 class Vocabulary(object):
