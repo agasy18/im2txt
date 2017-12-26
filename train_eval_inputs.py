@@ -20,20 +20,20 @@ def input_fn(dataset, feature_extuctor, is_training, cache_dir, batch_size, max_
         with working_dir(cache_dir, True):
             fd, feature_size = feature_dataset()
 
-
             def merge(f, c):
-                return {
-                           'features': f['features'],
-                           'input_seq': c['input_seq']
-                       }, {
-                           'target_seq': c['target_seq'],
-                           'mask': c['mask']
-                       }
+                with tf.control_dependencies([tf.assert_equal(f['id'], c['image_id'])]):
+                    return {
+                               'features': tf.identity(f['features']),
+                               'input_seq': c['input_seq']
+                           }, {
+                               'target_seq': c['target_seq'],
+                               'mask': c['mask']
+                           }
 
             d = tf.data.Dataset.zip((fd, cd)).map(merge, 4)
             if is_training:
                 d = d.repeat(max_train_epochs)
-                d = d.shuffle(buffer_size=batch_size*2)
+                d = d.shuffle(buffer_size=batch_size * 2)
             d = d.padded_batch(batch_size, padded_shapes=({'features': [feature_size], 'input_seq': [None]},
                                                           {'target_seq': [None], 'mask': [None]}))
 
@@ -53,6 +53,7 @@ def input_fn(dataset, feature_extuctor, is_training, cache_dir, batch_size, max_
             d = d.map(batch_reshape).prefetch(10)
 
             return d.make_one_shot_iterator().get_next()
+
     return input_f
 
 

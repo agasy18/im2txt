@@ -2,6 +2,8 @@ import tensorflow as tf
 from collections import Callable
 import inspect
 
+from utlis import progress
+
 
 def int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
