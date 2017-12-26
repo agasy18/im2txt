@@ -4,7 +4,6 @@ import tensorflow.contrib as contrib
 
 def feature2seq(features,
                 input_seq,
-                target_seq,
                 mask,
                 mode,
                 vocab_size,
@@ -89,8 +88,5 @@ def feature2seq(features,
                 activation_fn=None,
                 weights_initializer=initializer,
                 scope=logits_scope)
-        # LOSS
-        targets = tf.reshape(target_seq, [-1])
-        weights = tf.to_float(tf.reshape(mask, [-1]))
 
-        return targets, logits, weights
+        return logits

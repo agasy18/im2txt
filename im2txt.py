@@ -66,28 +66,48 @@ def test_input_fn():
     return None
 
 
+def caption_log_fn(id, input_seq, mask, targets):
+    s = '[{}] {} | {}'.format(id,
+                              ' '.join(config.caption_vocabulary.id_to_word(i) for i in input_seq[:sum(mask)]),
+                              ' '.join(config.caption_vocabulary.id_to_word(t) for t in targets)
+                              )
+    tf.logging.info(s)
+    return s
+
+
 def im2txt(features, labels, mode):
-    targets, logits, weights = config.seq_generator(features=features['features'],
-                                                    input_seq=features['input_seq'],
-                                                    target_seq=labels['target_seq'],
-                                                    mask=labels['mask'],
-                                                    mode=mode)
+    input_seq = features['input_seq']
+    target_seq = labels['target_seq']
+    mask = labels['mask']
+    with tf.variable_scope('sequence'):
+        logits = config.seq_generator(features=features['features'],
+                                      input_seq=input_seq,
+                                      mask=mask,
+                                      mode=mode)
+    with tf.variable_scope('caption_log'):
+        tf.summary.text('caption', tf.py_func(caption_log_fn, [
+            features['id'][0],
+            target_seq[0],
+            mask[0],
+            tf.argmax(logits, 1)[0:tf.shape(mask)[1]]
+        ], tf.string, stateful=False))
 
     if mode != tf.estimator.ModeKeys.PREDICT:
-        total_loss, losses = config.seq_loss(targets=targets, logits=logits, weights=weights)
-        if mode == tf.estimator.ModeKeys.EVAL:
-            return tf.estimator.EstimatorSpec(mode=mode,
-                                              loss=total_loss,
-                                              eval_metric_ops=eval_utils.eval_perplexity(weights=weights,
-                                                                                         losses=losses))
-        else:
-            return tf.estimator.EstimatorSpec(mode=mode,
-                                              loss=total_loss,
-                                              train_op=config.optimize_loss(total_loss))
-    else:
-
-        return tf.estimator.EstimatorSpec(mode=mode,
-                                          predictions={'coef': logits, 'ides': targets})
+        with tf.variable_scope('loss'):
+            total_loss, losses = config.seq_loss(targets=target_seq, logits=logits, weights=mask)
+            if mode == tf.estimator.ModeKeys.EVAL:
+                return tf.estimator.EstimatorSpec(mode=mode,
+                                                  loss=total_loss,
+                                                  eval_metric_ops=eval_utils.eval_perplexity(weights=weights,
+                                                                                             losses=losses))
+            else:
+                return tf.estimator.EstimatorSpec(mode=mode,
+                                                  loss=total_loss,
+                                                  train_op=config.optimize_loss(total_loss))
+    # else:
+    #
+    #     return tf.estimator.EstimatorSpec(mode=mode,
+    #                                       predictions={'coef': logits, 'ides': targets})
 
 
 estimator = tf.estimator.Estimator(model_fn=im2txt,
