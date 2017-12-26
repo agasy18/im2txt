@@ -15,9 +15,9 @@ log_step_count_steps = 500
 num_examples_per_epoch = 586363
 
 batch_size = 1024
-initial_learning_rate = 4
+initial_learning_rate = 4.0
 learning_rate_decay_factor = 0.5
-num_epochs_per_decay = 20
+num_epochs_per_decay = 20.0
 optimizer = 'Adagrad'
 clip_gradients = 5.0
 seq_max_len = 100
