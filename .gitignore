@@ -162,4 +162,4 @@ venv.bak/
 # im2txt
 
 /data/*
-/records/*
+/model/*

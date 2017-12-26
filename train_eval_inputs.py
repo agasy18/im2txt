@@ -74,6 +74,7 @@ def feature_dataset():
     return tf.data.TFRecordDataset([path.abspath(cache_file_name)]).map(_parse), feature_size
 
 
+
 def create_feature_records(image_dataset: tf.data.Dataset, feature_extuctor, captions_dataset, is_training):
     image_dataset_iter = image_dataset.make_one_shot_iterator().get_next()
     img = image_processing.process_image(image_dataset_iter['jpeg'], is_training=is_training)

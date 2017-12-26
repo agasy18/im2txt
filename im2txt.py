@@ -79,17 +79,20 @@ def im2txt(features, labels, mode):
     input_seq = features['input_seq']
     target_seq = labels['target_seq']
     mask = labels['mask']
+    img_features = features['features']
+    ides = features['id']
+
     with tf.variable_scope('sequence'):
-        logits = config.seq_generator(features=features['features'],
+        logits = config.seq_generator(features=img_features,
                                       input_seq=input_seq,
                                       mask=mask,
                                       mode=mode)
     with tf.variable_scope('caption_log'):
         tf.summary.text('caption', tf.py_func(caption_log_fn, [
-            features['id'][0],
+            ides[0],
             target_seq[0],
             mask[0],
-            tf.argmax(logits, 1)[0:tf.shape(mask)[1]]
+            tf.argmax(logits, 1)[0:tf.shape(mask)[1]],
         ], tf.string, stateful=False))
 
     if mode != tf.estimator.ModeKeys.PREDICT:
