@@ -10,12 +10,12 @@ import feature2seq
 max_train_iters = 10000000
 keep_checkpoint_max = 10
 max_train_epochs = 150
-save_checkpoints_steps = 3000
+save_checkpoints_steps = 1000
 log_step_count_steps = 500
 num_examples_per_epoch = 586363
 
 batch_size = 1024
-initial_learning_rate = 0.001
+initial_learning_rate = 4
 learning_rate_decay_factor = 0.5
 num_epochs_per_decay = 20
 optimizer = 'Adagrad'

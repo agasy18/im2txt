@@ -96,9 +96,9 @@ def im2txt(features, labels, mode):
         ], tf.string, stateful=False))
 
     if mode != tf.estimator.ModeKeys.PREDICT:
-        with tf.variable_scope('loss'):
             total_loss, losses = config.seq_loss(targets=target_seq, logits=logits, weights=mask)
             if mode == tf.estimator.ModeKeys.EVAL:
+                # TODO
                 return tf.estimator.EstimatorSpec(mode=mode,
                                                   loss=total_loss,
                                                   eval_metric_ops=eval_utils.eval_perplexity(weights=weights,
@@ -107,6 +107,7 @@ def im2txt(features, labels, mode):
                 return tf.estimator.EstimatorSpec(mode=mode,
                                                   loss=total_loss,
                                                   train_op=config.optimize_loss(total_loss))
+    # TODO
     # else:
     #
     #     return tf.estimator.EstimatorSpec(mode=mode,

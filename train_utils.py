@@ -3,17 +3,17 @@ import tensorflow.contrib as contrib
 
 
 def seq_loss(targets, logits, weights):
-    # Compute losses.
-    weights = tf.to_float(tf.reshape(weights, [-1]))
-    losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=tf.reshape(targets, [-1]),
-                                                            logits=logits)
-    batch_loss = tf.div(tf.reduce_sum(tf.multiply(losses, weights)),
-                        tf.reduce_sum(weights),
-                        name="batch_loss")
-    tf.losses.add_loss(batch_loss)
-    total_loss = tf.losses.get_total_loss()
+    with tf.variable_scope('loss'):
+        weights = tf.to_float(tf.reshape(weights, [-1]))
+        losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=tf.reshape(targets, [-1]),
+                                                                logits=logits)
+        batch_loss = tf.div(tf.reduce_sum(tf.multiply(losses, weights)),
+                            tf.reduce_sum(weights),
+                            name="batch_loss")
+        tf.losses.add_loss(batch_loss)
+        total_loss = tf.losses.get_total_loss()
 
-    return total_loss, losses
+        return total_loss, losses
 
 
 def optimize_loss(total_loss,
@@ -25,20 +25,21 @@ def optimize_loss(total_loss,
                   batch_size,
                   optimizer,
                   summaries):
-    learning_rate = tf.constant(initial_learning_rate)
-    learning_rate_decay_fn = None
-    if learning_rate_decay_factor > 0:
-        num_batches_per_epoch = (num_examples_per_epoch / batch_size)
-        decay_steps = int(num_batches_per_epoch *
-                          num_epochs_per_decay)
+    with tf.variable_scope('learning_rate'):
+        learning_rate = tf.constant(initial_learning_rate)
+        learning_rate_decay_fn = None
+        if learning_rate_decay_factor > 0:
+            num_batches_per_epoch = (num_examples_per_epoch / batch_size)
+            decay_steps = int(num_batches_per_epoch *
+                              num_epochs_per_decay)
 
-        def learning_rate_decay_fn(lr, global_step):
-            return tf.train.exponential_decay(
-                lr,
-                global_step,
-                decay_steps=decay_steps,
-                decay_rate=learning_rate_decay_factor,
-                staircase=True)
+            def learning_rate_decay_fn(lr, global_step):
+                return tf.train.exponential_decay(
+                    lr,
+                    global_step,
+                    decay_steps=decay_steps,
+                    decay_rate=learning_rate_decay_factor,
+                    staircase=True)
 
     return contrib.layers.optimize_loss(
         loss=total_loss,
