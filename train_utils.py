@@ -2,9 +2,9 @@ import tensorflow as tf
 import tensorflow.contrib as contrib
 
 
-def seq_loss(targets, logits, weights):
+def seq_loss(targets, logits, mask):
     with tf.variable_scope('loss'):
-        weights = tf.to_float(tf.reshape(weights, [-1]))
+        weights = tf.to_float(tf.reshape(mask, [-1]))
         losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=tf.reshape(targets, [-1]),
                                                                 logits=logits)
         batch_loss = tf.div(tf.reduce_sum(tf.multiply(losses, weights)),
