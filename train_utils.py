@@ -11,6 +11,7 @@ def seq_loss(targets, logits, weights):
                             tf.reduce_sum(weights),
                             name="batch_loss")
         tf.losses.add_loss(batch_loss)
+
         total_loss = tf.losses.get_total_loss()
 
         return total_loss, losses

@@ -31,8 +31,7 @@ lstm_dropout_keep_prob = 0.7
 data_dir = 'data'
 feature_detector_data_dir = 'data/inception'
 
-project_ignore = [data_dir, feature_detector_data_dir]
-
+# Dataset
 
 train_dataset = mscoco.MSCoco(cache_dir=data_dir,
                               images_gs_url='gs://images.cocodataset.org/train2014',
@@ -51,6 +50,8 @@ eval_dataset = mscoco.MSCoco(cache_dir=data_dir,
 caption_vocabulary = train_dataset.vocabulary
 
 vocab_size = len(caption_vocabulary)
+
+# Feature extractor
 
 feature_detector = inception.Inception(cache_dir=data_dir,
                                        url='http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz',
@@ -83,17 +84,17 @@ optimize_loss = partial(train_utils.optimize_loss,
                         batch_size=batch_size,
                         optimizer=optimizer,
                         summaries=[
-    "learning_rate",
-    "loss",
-    "gradients",
-    "gradient_norm",
-    "global_gradient_norm",
-])
+                            "learning_rate",
+                            "loss",
+                            "gradients",
+                            "gradient_norm",
+                            "global_gradient_norm",
+                        ])
 
 eval_input_fn = partial(train_eval_inputs.input_fn,
                         dataset=eval_dataset,
                         feature_extuctor=feature_detector,
-                        is_training=True,
+                        is_training=False,
                         cache_dir=feature_detector_data_dir,
                         batch_size=batch_size,
                         max_train_epochs=max_train_epochs)
@@ -105,3 +106,5 @@ train_input_fn = partial(train_eval_inputs.input_fn,
                          cache_dir=feature_detector_data_dir,
                          batch_size=batch_size,
                          max_train_epochs=max_train_epochs)
+
+project_ignore = [data_dir, feature_detector_data_dir]

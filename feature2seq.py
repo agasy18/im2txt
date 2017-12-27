@@ -69,7 +69,7 @@ def feature2seq(features,
             )
         else:
             # dynamic_rnn
-            sequence_length = tf.reduce_sum(mask, 1)
+            sequence_length = tf.reduce_sum(mask, 1, name='sequence_length')
             lstm_outputs, _ = tf.nn.dynamic_rnn(cell=lstm_cell,
                                                 inputs=seq_embeddings,
                                                 sequence_length=sequence_length,
@@ -78,7 +78,7 @@ def feature2seq(features,
                                                 scope=lstm_scope)
 
             # Stack batches vertically.
-            lstm_outputs = tf.reshape(lstm_outputs, [-1, lstm_cell.output_size])
+            lstm_outputs = tf.reshape(lstm_outputs, [-1, lstm_cell.output_size], name='lstm_outputs')
 
     if mode != tf.estimator.ModeKeys.PREDICT:
         with tf.variable_scope("logits") as logits_scope:
