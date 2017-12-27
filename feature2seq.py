@@ -13,7 +13,7 @@ def feature2seq(features,
                 num_lstm_units,
                 lstm_dropout_keep_prob):
     initializer = tf.random_uniform_initializer(
-        minval=initializer_scale,
+        minval=-initializer_scale,
         maxval=initializer_scale
     )
 
