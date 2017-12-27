@@ -108,7 +108,6 @@ def beam_search(initial_state,
     with tf.control_dependencies([
         # tf.Print(ides, [ides, coefs], summarize=1000)
     ]):
-        targets = tf.expand_dims(ides, 0)
-        logits = tf.expand_dims(coefs, 0)
-        weights = tf.ones(tf.shape(targets))
-        return targets, logits, weights
+        ides = tf.expand_dims(ides, 0, name='ides')
+        coefs = tf.expand_dims(coefs, 0, name='coefs')
+        return ides, coefs

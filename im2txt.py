@@ -83,20 +83,20 @@ def im2txt(features, labels, mode):
     ides = features['id']
 
     with tf.variable_scope('sequence'):
-        logits = config.seq_generator(features=img_features,
+        pred = config.seq_generator(features=img_features,
                                       input_seq=input_seq,
                                       mask=mask,
                                       mode=mode)
-    with tf.variable_scope('caption_log'):
-        tf.summary.text('caption', tf.py_func(caption_log_fn, [
-            ides[0],
-            target_seq[0],
-            mask[0],
-            tf.argmax(logits, 1)[0:tf.shape(mask)[1]],
-        ], tf.string, stateful=False))
-
     if mode != tf.estimator.ModeKeys.PREDICT:
-            total_loss, losses = config.seq_loss(targets=target_seq, logits=logits, mask=mask)
+        with tf.variable_scope('caption_log'):
+            tf.summary.text('caption', tf.py_func(caption_log_fn, [
+                ides[0],
+                target_seq[0],
+                mask[0],
+                tf.argmax(pred['logits'], 1)[0:tf.shape(mask)[1]],
+            ], tf.string, stateful=False))
+
+            total_loss, losses = config.seq_loss(targets=target_seq, logits=pred['logits'], mask=mask)
             if mode == tf.estimator.ModeKeys.EVAL:
                 return tf.estimator.EstimatorSpec(mode=mode,
                                                   loss=total_loss,
@@ -106,11 +106,9 @@ def im2txt(features, labels, mode):
                 return tf.estimator.EstimatorSpec(mode=mode,
                                                   loss=total_loss,
                                                   train_op=config.optimize_loss(total_loss))
-    # TODO
-    # else:
-    #
-    #     return tf.estimator.EstimatorSpec(mode=mode,
-    #                                       predictions={'coef': logits, 'ides': targets})
+    else:
+        return tf.estimator.EstimatorSpec(mode=mode,
+                                          predictions={'coef': pred['coefs'], 'ides': pred['ides']})
 
 
 estimator = tf.estimator.Estimator(model_fn=im2txt,

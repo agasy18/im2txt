@@ -62,11 +62,12 @@ def feature2seq(features,
         lstm_scope.reuse_variables()
 
         if mode == tf.estimator.ModeKeys.PREDICT:
-            return predictor(
+            ides, coefs = predictor(
                 initial_state=initial_state,
                 lstm_cell=lstm_cell,
                 embedding_map=embedding_map
             )
+            return {'ides': ides, 'coefs': coefs}
         else:
             # dynamic_rnn
             sequence_length = tf.reduce_sum(mask, 1, name='sequence_length')
@@ -89,4 +90,4 @@ def feature2seq(features,
                 weights_initializer=initializer,
                 scope=logits_scope)
 
-        return logits
+        return {'logits': logits}
