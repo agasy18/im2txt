@@ -96,16 +96,16 @@ def im2txt(features, labels, mode):
                 tf.argmax(pred['logits'], 1)[0:tf.shape(mask)[1]],
             ], tf.string, stateful=False))
 
-            total_loss, losses = config.seq_loss(targets=target_seq, logits=pred['logits'], mask=mask)
-            if mode == tf.estimator.ModeKeys.EVAL:
-                return tf.estimator.EstimatorSpec(mode=mode,
-                                                  loss=total_loss,
-                                                  eval_metric_ops=eval_utils.eval_perplexity(mask=mask,
-                                                                                             losses=losses))
-            else:
-                return tf.estimator.EstimatorSpec(mode=mode,
-                                                  loss=total_loss,
-                                                  train_op=config.optimize_loss(total_loss))
+        total_loss, losses = config.seq_loss(targets=target_seq, logits=pred['logits'], mask=mask)
+        if mode == tf.estimator.ModeKeys.EVAL:
+            return tf.estimator.EstimatorSpec(mode=mode,
+                                              loss=total_loss,
+                                              eval_metric_ops=eval_utils.eval_perplexity(mask=mask,
+                                                                                         losses=losses))
+        else:
+            return tf.estimator.EstimatorSpec(mode=mode,
+                                              loss=total_loss,
+                                              train_op=config.optimize_loss(total_loss))
     else:
         return tf.estimator.EstimatorSpec(mode=mode,
                                           predictions={'coef': pred['coefs'], 'ides': pred['ides']})
