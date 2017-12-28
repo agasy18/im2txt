@@ -1,20 +1,14 @@
 import tensorflow as tf
-from os import path
-
 from tensorflow.contrib.slim.python.slim.nets.inception_v3 import inception_v3_base
 
-from utlis import call_program, working_dir
+from feature_extractor import DownloadableFeatureExtractor
 
 slim = tf.contrib.slim
 
 
-class Inception:
+class Inception(DownloadableFeatureExtractor):
     def __init__(self, cache_dir, url, tar, model_file):
-        self.url = url
-        self.cache_dir = path.abspath(cache_dir)
-        self.model_file = model_file
-        self.tar = tar
-        self._model_path = path.join(self.cache_dir, model_file)
+        super().__init__(cache_dir, url, tar, model_file)
 
     @staticmethod
     def inception_v3(images,
@@ -103,14 +97,6 @@ class Inception:
 
         return net
 
-    @property
-    def model_path(self):
-        if not path.isfile(self._model_path):
-            with working_dir(self.cache_dir):
-                call_program(['wget', '-nc', self.url])
-                call_program(['tar', '-xvf', self.tar, '-C', './'])
-        return self._model_path
-
     def load(self, sess):
         saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="InceptionV3"))
         saver.restore(sess, self.model_path)
@@ -118,34 +104,3 @@ class Inception:
     def build(self, images, mode, trainable, **kwargs):
         return self.inception_v3(images, trainable=trainable, is_training=tf.estimator.ModeKeys.TRAIN == mode,
                                  **kwargs),
-
-
-
-# def test_input_fn():
-#     import image_processing
-#     import urllib.request
-#     import tensorflow.tf.data as tfdata
-#     import image_embedding
-#
-#     if args.test_urls:
-#         jpegs = [urllib.request.urlopen(url).read()
-#                  for url in args.test_urls.split(',')]
-#
-#         with tf.Graph().as_default() as g:
-#             jpeg = tf.placeholder(dtype=tf.string)
-#
-#             image = image_processing.process_image(jpeg, False)
-#
-#             features = image_embedding.inception_v3([image], False, False)
-#
-#             saver = tf.train.Saver(tf.get_collection(
-#                 tf.GraphKeys.GLOBAL_VARIABLES, scope="InceptionV3"))
-#             with tf.Session(graph=g) as sess:
-#                 saver.restore(sess, args.cnn_model)
-#                 features_list = [sess.run(features, feed_dict={jpeg: j}) for j in jpegs]
-#
-#         dataset = tfdata.Dataset.from_tensor_slices(np.array(features_list))
-#
-#         return {'features': dataset.make_one_shot_iterator().get_next()}, None
-#     else:
-#         raise Exception('pass test_urls')

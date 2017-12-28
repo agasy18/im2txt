@@ -1,5 +1,6 @@
 import mscoco
-import inception
+from inception_fe import Inception
+from faster_rcnn_inception_v2_fe import FasterRCNNInceptionV2
 import beam_search
 import train_utils
 import train_eval_inputs
@@ -29,7 +30,6 @@ embedding_size = 512
 lstm_dropout_keep_prob = 0.7
 
 data_dir = 'data'
-feature_detector_data_dir = 'data/inception'
 
 # Dataset
 
@@ -53,10 +53,17 @@ vocab_size = len(caption_vocabulary)
 
 # Feature extractor
 
-feature_detector = inception.Inception(cache_dir=data_dir,
-                                       url='http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz',
-                                       tar='inception_v3_2016_08_28.tar.gz',
-                                       model_file='inception_v3.ckpt')
+feature_detector = Inception(cache_dir=data_dir,
+                             url='http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz',
+                             tar='inception_v3_2016_08_28.tar.gz',
+                             model_file='inception_v3.ckpt')
+
+# feature_detector = FasterRCNNInceptionV2(cache_dir=data_dir,
+#                                          url='http://download.tensorflow.org/models/object_detection'
+#                                              '/faster_rcnn_inception_v2_coco_2017_11_08.tar.gz',
+#                                          tar='faster_rcnn_inception_v2_coco_2017_11_08.tar.gz',
+#                                          model_file='faster_rcnn_inception_v2_coco_2017_11_08')
+
 
 predictor = partial(beam_search.beam_search,
                     beam_size=beam_size,
@@ -95,7 +102,7 @@ eval_input_fn = partial(train_eval_inputs.input_fn,
                         dataset=eval_dataset,
                         feature_extuctor=feature_detector,
                         is_training=False,
-                        cache_dir=feature_detector_data_dir,
+                        cache_dir=data_dir,
                         batch_size=batch_size,
                         max_train_epochs=max_train_epochs)
 
@@ -103,8 +110,8 @@ train_input_fn = partial(train_eval_inputs.input_fn,
                          dataset=train_dataset,
                          feature_extuctor=feature_detector,
                          is_training=True,
-                         cache_dir=feature_detector_data_dir,
+                         cache_dir=data_dir,
                          batch_size=batch_size,
                          max_train_epochs=max_train_epochs)
 
-project_ignore = [data_dir, feature_detector_data_dir]
+project_ignore = [data_dir]

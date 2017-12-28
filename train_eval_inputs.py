@@ -1,7 +1,7 @@
 from os import path, rename
 import tensorflow as tf
 import numpy as np
-
+from feature_extractor import FeatureExtractor
 import image_processing
 from utlis import working_dir
 from record import map_dataset_to_record, int64_feature, floats_feature
@@ -10,8 +10,11 @@ cache_file_name = 'features.tfrecords'
 size_file_name = 'features.size'
 
 
-def input_fn(dataset, feature_extuctor, is_training, cache_dir, batch_size, max_train_epochs):
+def input_fn(dataset, feature_extuctor: FeatureExtractor , is_training, cache_dir, batch_size, max_train_epochs):
+    cache_dir = path.join(cache_dir, feature_extuctor.name())
     with working_dir(cache_dir, True):
+        import os
+        print(os.getcwd())
         cd = dataset.captions_dataset
         if not path.isfile(cache_file_name):
             create_feature_records(dataset.image_dataset, feature_extuctor, cd, is_training)
@@ -72,7 +75,6 @@ def feature_dataset():
         return tf.parse_single_example(example_serialized, features)
 
     return tf.data.TFRecordDataset([path.abspath(cache_file_name)]).map(_parse), feature_size
-
 
 
 def create_feature_records(image_dataset: tf.data.Dataset, feature_extuctor, captions_dataset, is_training):
