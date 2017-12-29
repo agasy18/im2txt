@@ -10,14 +10,14 @@ cache_file_name = 'features.tfrecords'
 size_file_name = 'features.size'
 
 
-def input_fn(dataset, feature_extuctor: FeatureExtractor , is_training, cache_dir, batch_size, max_train_epochs):
-    cache_dir = path.join(cache_dir, feature_extuctor.name())
+def input_fn(dataset, feature_extractor: FeatureExtractor, is_training, cache_dir, batch_size, max_train_epochs):
+    cache_dir = path.join(cache_dir, feature_extractor.name())
     with working_dir(cache_dir, True):
         import os
         print(os.getcwd())
         cd = dataset.captions_dataset
         if not path.isfile(cache_file_name):
-            create_feature_records(dataset.image_dataset, feature_extuctor, cd, is_training)
+            create_feature_records(dataset.image_dataset, feature_extractor, cd, is_training)
 
     def input_f():
         with working_dir(cache_dir, True):

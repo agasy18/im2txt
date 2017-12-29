@@ -5,7 +5,7 @@ def eval_perplexity(mask, losses):
     with tf.variable_scope('perplexity',
                            initializer=tf.constant_initializer(),
                            dtype=tf.float32):
-        weights = tf.reshape(mask, [-1])
+        weights = tf.to_float(tf.reshape(mask, [-1]))
         sum_losses = tf.get_variable('sum_losses', (), trainable=False,
                                      collections=[tf.GraphKeys.LOCAL_VARIABLES])
         sum_weights = tf.get_variable('sum_weights', (), trainable=False,

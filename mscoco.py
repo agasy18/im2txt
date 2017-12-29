@@ -60,13 +60,13 @@ class MSCoco:
         self.images_gs_url = images_gs_url
         self.is_downloaded = False
         self.cache_dir = path.abspath(cache_dir)
-        self.records_dir = path.join(self.cache_dir, records_dir)
+        self.records_dir = path.join(self.cache_dir, records_dir, image_dir)
         self.image_dir = path.join(self.cache_dir, image_dir)
-        self.vocabulary_file = path.join(self.records_dir, vocabulary_file)
+        self.vocabulary_file = path.join(self.cache_dir, records_dir, vocabulary_file)
         self.annotations_zip = annotations_zip
         self.caption_json_path = path.join(self.cache_dir, caption_json_path)
-        self.images_records_path = path.join(self.records_dir, image_dir + '.images.tfrecords')
-        self.caption_records_path = path.join(self.records_dir, image_dir + '.captions.tfrecords')
+        self.images_records_path = path.join(self.records_dir, 'images.tfrecords')
+        self.caption_records_path = path.join(self.records_dir, 'captions.tfrecords')
         self._vocabulary = None
 
     def _create_vocab(self, captions):

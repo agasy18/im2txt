@@ -28,6 +28,7 @@ num_lstm_units = 512
 initializer_scale = 0.08
 embedding_size = 512
 lstm_dropout_keep_prob = 0.7
+num_examples_per_eval = 40504
 
 data_dir = 'data'
 
@@ -100,17 +101,17 @@ optimize_loss = partial(train_utils.optimize_loss,
 
 eval_input_fn = partial(train_eval_inputs.input_fn,
                         dataset=eval_dataset,
-                        feature_extuctor=feature_detector,
+                        feature_extractor=feature_detector,
                         is_training=False,
-                        cache_dir=data_dir,
+                        cache_dir=eval_dataset.records_dir,
                         batch_size=batch_size,
                         max_train_epochs=max_train_epochs)
 
 train_input_fn = partial(train_eval_inputs.input_fn,
                          dataset=train_dataset,
-                         feature_extuctor=feature_detector,
+                         feature_extractor=feature_detector,
                          is_training=True,
-                         cache_dir=data_dir,
+                         cache_dir=train_dataset.records_dir,
                          batch_size=batch_size,
                          max_train_epochs=max_train_epochs)
 

@@ -37,7 +37,6 @@ class DownloadableFeatureExtractor(FeatureExtractor):
         self.tar = tar
         self._model_path = path.join(self.cache_dir, model_file)
 
-
     @property
     def model_path(self):
         if not path.isfile(self._model_path):

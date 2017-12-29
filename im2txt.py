@@ -124,11 +124,10 @@ if args.debug:
 
 if args.mode == 'train':
     in_f = config.train_input_fn()
-
     estimator.train(input_fn=in_f, hooks=hooks)
 elif args.mode == 'eval':
     in_f = config.eval_input_fn()
-    estimator.evaluate(input_fn=in_f, steps=config.num_examples_per_eval)
+    estimator.evaluate(input_fn=in_f, steps=config.num_examples_per_eval, hooks=hooks)
 else:
     for name, pred in zip(args.test_urls.split(','), estimator.predict(input_fn=test_input_fn)):
         print('![](', name, ')\n',
