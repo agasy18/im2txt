@@ -13,6 +13,7 @@ keep_checkpoint_max = 10
 max_train_epochs = 350
 save_checkpoints_steps = 1000
 log_step_count_steps = 500
+
 num_examples_per_epoch = 586363
 
 batch_size = 1024
@@ -28,7 +29,9 @@ num_lstm_units = 512
 initializer_scale = 0.08
 embedding_size = 512
 lstm_dropout_keep_prob = 0.7
+
 num_examples_per_eval = 40504
+eval_log_step_count_steps = 50
 
 data_dir = 'data'
 
@@ -93,7 +96,6 @@ optimize_loss = partial(train_utils.optimize_loss,
                         optimizer=optimizer,
                         summaries=[
                             "learning_rate",
-                            "loss",
                             "gradients",
                             "gradient_norm",
                             "global_gradient_norm",

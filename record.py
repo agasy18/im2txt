@@ -34,7 +34,7 @@ def map_dataset_to_record(dataset: tf.data.Dataset, records_path: str, func: Cal
         f = dict([(x, itr[x]) for x in args if x not in super_keys])
     except KeyError:
         raise Exception('invalid argument in passed func allowed args are: ' + ', '.join(list(itr.keys()) + super_keys))
-    with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:
+    with tf.Session() as sess:
         init_func and init_func(sess)
         with tf.python_io.TFRecordWriter(records_path) as writer:
             i = 1
@@ -52,4 +52,4 @@ def map_dataset_to_record(dataset: tf.data.Dataset, records_path: str, func: Cal
                     writer.write(e.SerializeToString())
                 progress(i, iter_count or 100)
                 i += 1
-    print('\n')
+    print('\n\n')

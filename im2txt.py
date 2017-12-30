@@ -116,7 +116,7 @@ estimator = tf.estimator.Estimator(model_fn=im2txt,
                                    config=tf.estimator.RunConfig().replace(
                                        save_checkpoints_steps=config.save_checkpoints_steps,
                                        keep_checkpoint_max=config.keep_checkpoint_max,
-                                       log_step_count_steps=config.log_step_count_steps
+                                       log_step_count_steps=config.log_step_count_steps if args.mode == 'train' else config.eval_log_step_count_steps
                                    ))
 hooks = []
 if args.debug:
@@ -126,8 +126,17 @@ if args.mode == 'train':
     in_f = config.train_input_fn()
     estimator.train(input_fn=in_f, hooks=hooks)
 elif args.mode == 'eval':
+    ch = None
     in_f = config.eval_input_fn()
-    estimator.evaluate(input_fn=in_f, steps=config.num_examples_per_eval, hooks=hooks)
+    while True:
+        if ch == estimator.latest_checkpoint():
+            tf.logging.info('waiting for checkpoint')
+            time.sleep(10)
+            continue
+        ch = estimator.latest_checkpoint()
+        tf.logging.info('loading for checkpoint: ' + ch)
+        estimator.evaluate(input_fn=in_f, steps=config.num_examples_per_eval, hooks=hooks)
+
 else:
     for name, pred in zip(args.test_urls.split(','), estimator.predict(input_fn=test_input_fn)):
         print('![](', name, ')\n',
