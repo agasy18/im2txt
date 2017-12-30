@@ -4,20 +4,19 @@ import numpy as np
 from feature_extractor import FeatureExtractor
 import image_processing
 from utlis import working_dir
-from record import map_dataset_to_record, int64_feature, floats_feature
+from record import map_dataset_to_record, int64_feature, floats_feature, get_records_length
 
 cache_file_name = 'features.tfrecords'
 size_file_name = 'features.size'
 
 
-def input_fn(dataset, feature_extractor: FeatureExtractor, is_training, cache_dir, batch_size, max_train_epochs):
+def input_fn(dataset, feature_extractor: FeatureExtractor, is_training, cache_dir, batch_size, max_epochs):
     cache_dir = path.join(cache_dir, feature_extractor.name())
     with working_dir(cache_dir, True):
-        import os
-        print(os.getcwd())
         cd = dataset.captions_dataset
+        cdl = dataset.captions_dataset_length
         if not path.isfile(cache_file_name):
-            create_feature_records(dataset.image_dataset, feature_extractor, cd, is_training)
+            create_feature_records(dataset.image_dataset, cdl, feature_extractor, cd, is_training)
 
     def input_f():
         with working_dir(cache_dir, True):
@@ -35,7 +34,7 @@ def input_fn(dataset, feature_extractor: FeatureExtractor, is_training, cache_di
                            }
 
             d = tf.data.Dataset.zip((fd, cd)).map(merge, 4)
-            d = d.repeat(max_train_epochs)
+            d = d.repeat(max_epochs)
 
             if is_training:
                 d = d.shuffle(buffer_size=batch_size * 2)
@@ -78,7 +77,7 @@ def feature_dataset():
     return tf.data.TFRecordDataset([path.abspath(cache_file_name)]).map(_parse), feature_size
 
 
-def create_feature_records(image_dataset: tf.data.Dataset, feature_extuctor, captions_dataset, is_training):
+def create_feature_records(image_dataset: tf.data.Dataset, dataset_length: int, feature_extuctor, captions_dataset, is_training):
     image_dataset_iter = image_dataset.make_one_shot_iterator().get_next()
     img = image_processing.process_image(image_dataset_iter['jpeg'], is_training=is_training)
     features, *_ = feature_extuctor.build(images=[img],
@@ -108,9 +107,9 @@ def create_feature_records(image_dataset: tf.data.Dataset, feature_extuctor, cap
         yield exec_context['example']
 
     map_dataset_to_record(dataset=captions_dataset,
-                          records_path=cache_file_name + '_tmp',
+                          records_path=cache_file_name,
                           func=ext_f,
-                          init_func=lambda sess: feature_extuctor.load(sess))
-    rename(cache_file_name + '_tmp', cache_file_name)
+                          init_func=lambda sess: feature_extuctor.load(sess),
+                          iter_count=dataset_length)
     with open(size_file_name, 'w') as f:
         f.write(str(exec_context['f_size']))

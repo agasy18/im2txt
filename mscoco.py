@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from utlis import call_program, working_dir, gs_download, progress
 from record import bytes_feature_list, int64_feature, \
-    int64_feature_list, bytes_feature, map_dataset_to_record
+    int64_feature_list, bytes_feature, map_dataset_to_record, get_records_length, map_to_record
 
 
 class Vocabulary(object):
@@ -140,6 +140,9 @@ class MSCoco:
             self.is_downloaded = True
 
     def create_image_records(self):
+        if path.isfile(self.images_records_path):
+            return
+
         print('Write:', self.images_records_path)
         self._download_images()
         images = self.caption_json['images']
@@ -151,28 +154,33 @@ class MSCoco:
             assert len(image.shape) == 3
             assert image.shape[2] == 3
 
-        with tf.Session() as sess, tf.python_io.TFRecordWriter(self.images_records_path + '_tmp') as writer:
-            for i, img in enumerate(images):
-                try:
-                    with tf.gfile.FastGFile(path.join(self.image_dir, img['file_name']), "rb") as f:
-                        encoded_image = f.read()
-                    decode_jpeg(sess, encoded_image)
-                    features = {
-                        'jpeg': bytes_feature(encoded_image),
-                        'id': int64_feature(img['id']),
-                        'height': int64_feature(img['height']),
-                        'width': int64_feature(img['width'])
-                    }
-                    writer.write(tf.train.Example(features=tf.train.Features(feature=features)).SerializeToString())
-                    progress(i + 1, len(images))
-                except (tf.errors.InvalidArgumentError, AssertionError):
-                    print("Skip: file with invalid JPEG data: %s" % img['file_name'])
-        rename(self.images_records_path + '_tmp', self.images_records_path)
+        def func(sess, i_img):
+            i, img = i_img
+            try:
+                with tf.gfile.FastGFile(path.join(self.image_dir, img['file_name']), "rb") as f:
+                    encoded_image = f.read()
+                decode_jpeg(sess, encoded_image)
+                features = {
+                    'jpeg': bytes_feature(encoded_image),
+                    'id': int64_feature(img['id']),
+                    'height': int64_feature(img['height']),
+                    'width': int64_feature(img['width'])
+                }
+                yield tf.train.Example(features=tf.train.Features(feature=features))
+            except (tf.errors.InvalidArgumentError, AssertionError):
+                print("Skip: file with invalid JPEG data: %s" % img['file_name'])
+
+        map_to_record(enumerate(images), self.images_records_path, func, len(images))
+
+
+    @property
+    def image_dataset_length(self) -> int:
+        self.create_image_records()
+        return get_records_length(self.images_records_path)
 
     @property
     def image_dataset(self) -> tf.data.Dataset:
-        if not path.isfile(self.images_records_path):
-            self.create_image_records()
+        self.create_image_records()
 
         def _parse_image(example_serialized):
             features = {
@@ -185,9 +193,13 @@ class MSCoco:
         return tf.data.TFRecordDataset([self.images_records_path]).map(_parse_image)
 
     @property
+    def captions_dataset_length(self) -> int:
+        self.create_captions_records()
+        return get_records_length(self.caption_records_path)
+
+    @property
     def captions_dataset(self) -> tf.data.Dataset:
-        if not path.isfile(self.caption_records_path):
-            self.create_captions_records()
+        self.create_captions_records()
 
         def parse_caption(sequence_example_serialized):
             context, sequence = tf.parse_single_sequence_example(
@@ -215,6 +227,8 @@ class MSCoco:
         return tf.data.TFRecordDataset([self.caption_records_path]).map(parse_caption)
 
     def create_captions_records(self):
+        if path.isfile(self.caption_records_path):
+            return
         print('create_captions_records', self.caption_json_path, '\n')
 
         captions = self._tokenize_captions()
@@ -238,9 +252,7 @@ class MSCoco:
 
         map_dataset_to_record(
             dataset=self.image_dataset,
-            records_path=self.caption_records_path + '_tmp',
+            records_path=self.caption_records_path,
             func=mapper,
-            iter_count=len(captions)
+            iter_count=self.image_dataset_length
         )
-
-        rename(self.caption_records_path + '_tmp', self.caption_records_path)
