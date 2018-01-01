@@ -1,5 +1,5 @@
 import mscoco
-structuresption_fe import Inception
+from inception_fe import Inception
 from faster_rcnn_inception_v2_fe import FasterRCNNInceptionV2
 import beam_search
 import train_utils
@@ -10,7 +10,7 @@ import feature2seq
 
 
 keep_checkpoint_max = 10
-max_train_epochs = 300
+max_train_epochs = 500
 save_checkpoints_steps = 1000
 train_log_step_count_steps = 500
 eval_log_step_count_steps = 50
@@ -18,7 +18,7 @@ eval_log_step_count_steps = 50
 batch_size = 1024
 initial_learning_rate = 4.0
 learning_rate_decay_factor = 0.35
-num_epochs_per_decay = 30.0
+num_epochs_per_decay = 20.0
 optimizer = 'Adagrad'
 clip_gradients = 5.0
 seq_max_len = 100

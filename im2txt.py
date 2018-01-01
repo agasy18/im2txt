@@ -134,7 +134,7 @@ elif args.mode == 'eval':
             time.sleep(10)
             continue
         ch = estimator.latest_checkpoint()
-        tf.logging.info('loading for checkpoint: ' + ch)
+        tf.logging.info('loading checkpoint: ' + ch)
         estimator.evaluate(input_fn=in_f, steps=config.num_examples_per_eval / config.batch_size, hooks=hooks)
 
 else:
