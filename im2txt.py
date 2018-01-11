@@ -16,7 +16,7 @@ parser.add_argument('--debug', action='store_true')
 
 parser.add_argument('--model_dir', default='model', help="dir for storing generated model files and logs")
 parser.add_argument('--model_name', default=None, help="load specified model")
-parser.add_argument('--keep_model_max', type=int, default=5)
+parser.add_argument('--keep_model_max', type=int, default=15)
 
 tf.logging.set_verbosity(tf.logging.INFO)
 

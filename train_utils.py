@@ -33,6 +33,12 @@ def optimize_loss(total_loss,
             num_batches_per_epoch = (num_examples_per_epoch / batch_size)
             decay_steps = int(num_batches_per_epoch *
                               num_epochs_per_decay)
+            global_step = tf.train.get_or_create_global_step()
+            epoch = tf.to_int32(tf.div(tf.to_float(global_step, name='float_global_step'),
+                                       num_batches_per_epoch, name='float_epoch'), name='int_epoch')
+            if summaries and 'epoch' in summaries:
+                tf.summary.scalar('epoch', epoch)
+                summaries.remove('epoch')
 
             def learning_rate_decay_fn(lr, global_step):
                 return tf.train.exponential_decay(

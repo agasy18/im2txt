@@ -1,15 +1,15 @@
 import mscoco
 from inception_fe import Inception
-from faster_rcnn_inception_v2_fe import FasterRCNNInceptionV2
+from object_detector_fe import ObjectDetectorFE
 import beam_search
 import train_utils
 import train_eval_inputs
 from functools import partial
+import tensorflow as tf
 
 import feature2seq
 
-
-keep_checkpoint_max = 10
+keep_checkpoint_max = 20
 max_train_epochs = 500
 save_checkpoints_steps = 1000
 train_log_step_count_steps = 500
@@ -17,8 +17,10 @@ eval_log_step_count_steps = 50
 
 batch_size = 1024
 initial_learning_rate = 4.0
-learning_rate_decay_factor = 0.35
-num_epochs_per_decay = 20.0
+final_learning_rate = 0.02
+decay_count = 6
+learning_rate_decay_factor = 0.55
+num_epochs_per_decay = max_train_epochs / (decay_count + 1)
 optimizer = 'Adagrad'
 clip_gradients = 5.0
 seq_max_len = 100
@@ -55,18 +57,33 @@ caption_vocabulary = train_dataset.vocabulary
 
 vocab_size = len(caption_vocabulary)
 
+
 # Feature extractor
 
-feature_detector = Inception(cache_dir=data_dir,
-                             url='http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz',
-                             tar='inception_v3_2016_08_28.tar.gz',
-                             model_file='inception_v3.ckpt')
+# feature_detector = Inception(cache_dir=data_dir,
+#                              url='http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz',
+#                              tar='inception_v3_2016_08_28.tar.gz',
+#                              model_file='inception_v3.ckpt')
 
-# feature_detector = FasterRCNNInceptionV2(cache_dir=data_dir,
-#                                          url='http://download.tensorflow.org/models/object_detection'
-#                                              '/faster_rcnn_inception_v2_coco_2017_11_08.tar.gz',
-#                                          tar='faster_rcnn_inception_v2_coco_2017_11_08.tar.gz',
-#                                          model_file='faster_rcnn_inception_v2_coco_2017_11_08')
+def feature_selector():
+    g = tf.get_default_graph()
+    g.get_tensor_by_name('FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128/Relu6')
+
+
+def flat_tensor(t):
+    return tf.reshape(t, [tf.shape(t)[0], -1])
+
+
+feature_detector = ObjectDetectorFE(cache_dir=data_dir,
+                                    url='http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_2017_11_17.tar.gz',
+                                    tar='ssd_mobilenet_v1_coco_2017_11_17.tar.gz',
+                                    model_file='ssd_mobilenet_v1_coco_2017_11_17/frozen_inference_graph.pb',
+                                    feature_selector=lambda: tf.concat(
+                                        [flat_tensor(tf.get_default_graph().get_tensor_by_name(n + ':0')) for n in [
+                                            'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128/Relu6',
+                                            'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_1_Conv2d_4_1x1_128/Relu6'
+                                        ]], axis=1, name='selected_features'),
+                                    name='ssd_mobilenet_v1_coco_2017_11_17_fe_Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128_Conv2d_13_pointwise_1_Conv2d_4_1x1_128')
 
 eval_input_fn = partial(train_eval_inputs.input_fn,
                         dataset=eval_dataset,
@@ -114,7 +131,7 @@ optimize_loss = partial(train_utils.optimize_loss,
                             "gradients",
                             "gradient_norm",
                             "global_gradient_norm",
+                            "epoch"
                         ])
-
 
 project_ignore = [data_dir]

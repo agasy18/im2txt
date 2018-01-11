@@ -16,10 +16,10 @@ class FeatureExtractor:
         """
         raise NotImplementedError()
 
-    def build(self, images: tf.Tensor, mode: str, trainable: bool, **kwargs) -> tf.Tensor:
+    def build(self, images: tf.Tensor, mode: str, trainable: bool, **kwargs):
         """
         build feature extractor for images
-        :returns feature extractor tensor for specified parameters
+        :returns feature extractor tensor and other infos as tuple for specified parameters
 
         :param images: batch of rgb images ([B, H, W, C]) normalized in -1 to 1
         :param mode: one of tf.estimator.ModeKeys
@@ -37,10 +37,14 @@ class DownloadableFeatureExtractor(FeatureExtractor):
         self.tar = tar
         self._model_path = path.join(self.cache_dir, model_file)
 
-    @property
-    def model_path(self):
+    def download(self):
         if not path.isfile(self._model_path):
             with working_dir(self.cache_dir):
                 call_program(['wget', '-nc', self.url])
                 call_program(['tar', '-xvf', self.tar, '-C', './'])
+        assert (path.exists(self._model_path))
+
+    @property
+    def model_path(self):
+        self.download()
         return self._model_path
