@@ -14,6 +14,7 @@ max_train_epochs = 500
 save_checkpoints_steps = 1000
 train_log_step_count_steps = 500
 eval_log_step_count_steps = 50
+eval_every_chackpoint = 5
 
 batch_size = 1024
 initial_learning_rate = 4.0
@@ -81,9 +82,9 @@ feature_detector = ObjectDetectorFE(cache_dir=data_dir,
                                     feature_selector=lambda: tf.concat(
                                         [flat_tensor(tf.get_default_graph().get_tensor_by_name(n + ':0')) for n in [
                                             'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128/Relu6',
-                                            'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_1_Conv2d_4_1x1_128/Relu6'
+                                            'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256/Relu6'
                                         ]], axis=1, name='selected_features'),
-                                    name='ssd_mobilenet_v1_coco_2017_11_17_fe_Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128_Conv2d_13_pointwise_1_Conv2d_4_1x1_128')
+                                    name='ssd_mobilenet_v1_coco_2017_11_17_fe_Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256_Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128')
 
 eval_input_fn = partial(train_eval_inputs.input_fn,
                         dataset=eval_dataset,

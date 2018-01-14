@@ -11,7 +11,7 @@ from utlis import call_program, working_dir
 from tensorflow.python import debug as tf_debug
 
 parser = ArgumentParser()
-parser.add_argument('mode', choices=['train', 'eval', 'test'])
+parser.add_argument('mode', choices=['train', 'eval', 'test', 'train-eval'])
 parser.add_argument('--debug', action='store_true')
 
 parser.add_argument('--model_dir', default='model', help="dir for storing generated model files and logs")
@@ -58,7 +58,7 @@ if model_name is None:
     if not len(ms):
         model_name = 0
     else:
-        model_name = ms[-1] + 1 if args.mode == 'train' else ms[-1]
+        model_name = ms[-1] + 1 if 'train' in args.mode else ms[-1]
         [model_dir(d, rm=True) for d in ms[:-args.keep_model_max]]
 
 
@@ -84,9 +84,9 @@ def im2txt(features, labels, mode):
 
     with tf.variable_scope('sequence'):
         pred = config.seq_generator(features=img_features,
-                                      input_seq=input_seq,
-                                      mask=mask,
-                                      mode=mode)
+                                    input_seq=input_seq,
+                                    mask=mask,
+                                    mode=mode)
     if mode != tf.estimator.ModeKeys.PREDICT:
         with tf.variable_scope('caption_log'):
             tf.summary.text('caption', tf.py_func(caption_log_fn, [
@@ -111,32 +111,51 @@ def im2txt(features, labels, mode):
                                           predictions={'coef': pred['coefs'], 'ides': pred['ides']})
 
 
-estimator = tf.estimator.Estimator(model_fn=im2txt,
-                                   model_dir=model_dir(model_name),
-                                   config=tf.estimator.RunConfig().replace(
-                                       save_checkpoints_steps=config.save_checkpoints_steps,
-                                       keep_checkpoint_max=config.keep_checkpoint_max,
-                                       log_step_count_steps=config.train_log_step_count_steps if args.mode == 'train' else config.eval_log_step_count_steps
-                                   ))
+estimator_train = tf.estimator.Estimator(model_fn=im2txt,
+                                         model_dir=model_dir(model_name),
+                                         config=tf.estimator.RunConfig().replace(
+                                             save_checkpoints_steps=config.save_checkpoints_steps,
+                                             keep_checkpoint_max=config.keep_checkpoint_max,
+                                             log_step_count_steps=config.train_log_step_count_steps
+                                         )) if 'train' in args.mode else None
+estimator_eval = tf.estimator.Estimator(model_fn=im2txt,
+                                        model_dir=model_dir(model_name),
+                                        config=tf.estimator.RunConfig().replace(
+                                            save_checkpoints_steps=config.save_checkpoints_steps,
+                                            keep_checkpoint_max=config.keep_checkpoint_max,
+                                            log_step_count_steps=config.eval_log_step_count_steps
+                                        )) if 'eval' in args.mode else None
+
 hooks = []
+
 if args.debug:
     hooks.append(tf_debug.LocalCLIDebugHook())
 
 if args.mode == 'train':
     in_f = config.train_input_fn()
-    estimator.train(input_fn=in_f, hooks=hooks)
+    estimator_train.train(input_fn=in_f, hooks=hooks)
 elif args.mode == 'eval':
     ch = None
     in_f = config.eval_input_fn()
     while True:
-        if ch == estimator.latest_checkpoint():
+        if ch == estimator_eval.latest_checkpoint():
             tf.logging.info('waiting for checkpoint')
             time.sleep(10)
             continue
-        ch = estimator.latest_checkpoint()
+        ch = estimator_eval.latest_checkpoint()
         tf.logging.info('loading checkpoint: ' + ch)
-        estimator.evaluate(input_fn=in_f, steps=config.num_examples_per_eval / config.batch_size, hooks=hooks)
-
+        estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval / config.batch_size, hooks=hooks)
+elif args.mode == 'train-eval':
+    in_f = config.train_input_fn()
+    ch = None
+    while True:
+        estimator_train.train(input_fn=in_f, steps=config.save_checkpoints_steps * config.eval_every_chackpoint,
+                              hooks=hooks)
+        if ch == estimator_train.latest_checkpoint():
+            break
+        ch = estimator_train.latest_checkpoint()
+        tf.logging.info('loading checkpoint: ' + ch)
+        estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval / config.batch_size, hooks=hooks)
 else:
     for name, pred in zip(args.test_urls.split(','), estimator.predict(input_fn=test_input_fn)):
         print('![](', name, ')\n',
