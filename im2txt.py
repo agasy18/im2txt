@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from functools import partial
 from os import path, listdir, makedirs, environ
 import tensorflow as tf
 import numpy as np
@@ -11,7 +12,7 @@ from utlis import call_program, working_dir
 from tensorflow.python import debug as tf_debug
 
 parser = ArgumentParser()
-parser.add_argument('mode', choices=['train', 'eval', 'test', 'train-eval'])
+parser.add_argument('mode', choices=['train', 'test', 'train-eval'])
 parser.add_argument('--debug', action='store_true')
 
 parser.add_argument('--model_dir', default='model', help="dir for storing generated model files and logs")
@@ -62,10 +63,6 @@ if model_name is None:
         [model_dir(d, rm=True) for d in ms[:-args.keep_model_max]]
 
 
-def test_input_fn():
-    return None
-
-
 def caption_log_fn(id, input_seq, mask, targets):
     s = '[{}] {} | {}'.format(id,
                               ' '.join(config.caption_vocabulary.id_to_word(i) for i in input_seq[:sum(mask)]),
@@ -87,28 +84,24 @@ def im2txt(features, labels, mode):
                                     input_seq=input_seq,
                                     mask=mask,
                                     mode=mode)
-    if mode != tf.estimator.ModeKeys.PREDICT:
-        with tf.variable_scope('caption_log'):
-            tf.summary.text('caption', tf.py_func(caption_log_fn, [
-                ides[0],
-                target_seq[0],
-                mask[0],
-                tf.argmax(pred['logits'], 1)[0:tf.shape(mask)[1]],
-            ], tf.string, stateful=False))
+    with tf.variable_scope('caption_log'):
+        tf.summary.text('caption', tf.py_func(caption_log_fn, [
+            ides[0],
+            target_seq[0],
+            mask[0],
+            tf.argmax(pred['logits'], 1)[0:tf.shape(mask)[1]],
+        ], tf.string, stateful=False))
 
-        total_loss, losses = config.seq_loss(targets=target_seq, logits=pred['logits'], mask=mask)
-        if mode == tf.estimator.ModeKeys.EVAL:
-            return tf.estimator.EstimatorSpec(mode=mode,
-                                              loss=total_loss,
-                                              eval_metric_ops=eval_utils.eval_perplexity(mask=mask,
-                                                                                         losses=losses))
-        else:
-            return tf.estimator.EstimatorSpec(mode=mode,
-                                              loss=total_loss,
-                                              train_op=config.optimize_loss(total_loss))
+    total_loss, losses = config.seq_loss(targets=target_seq, logits=pred['logits'], mask=mask)
+    if mode == tf.estimator.ModeKeys.EVAL:
+        return tf.estimator.EstimatorSpec(mode=mode,
+                                          loss=total_loss,
+                                          eval_metric_ops=eval_utils.eval_perplexity(mask=mask,
+                                                                                     losses=losses))
     else:
         return tf.estimator.EstimatorSpec(mode=mode,
-                                          predictions={'coef': pred['coefs'], 'ides': pred['ides']})
+                                          loss=total_loss,
+                                          train_op=config.optimize_loss(total_loss))
 
 
 estimator_train = tf.estimator.Estimator(model_fn=im2txt,
@@ -126,17 +119,40 @@ estimator_eval = tf.estimator.Estimator(model_fn=im2txt,
                                             log_step_count_steps=config.eval_log_step_count_steps
                                         )) if 'eval' in args.mode else None
 
+
+def eval_input_fn():
+    return config.train_eval_inputs.input_fn(
+        dataset=config.eval_dataset,
+        image_preprocessor=config.image_preprocessor,
+        feature_extractor=config.feature_detector,
+        is_training=False,
+        cache_dir=config.eval_dataset.records_dir,
+        batch_size=config.batch_size,
+        max_epochs=1000000)
+
+
+def train_input_fn():
+    return config.train_eval_inputs.input_fn(
+        dataset=config.train_dataset,
+        image_preprocessor=config.image_preprocessor,
+        feature_extractor=config.feature_detector,
+        is_training=True,
+        cache_dir=config.train_dataset.records_dir,
+        batch_size=config.batch_size,
+        max_epochs=config.max_train_epochs)
+
+
 hooks = []
 
 if args.debug:
     hooks.append(tf_debug.LocalCLIDebugHook())
 
 if args.mode == 'train':
-    in_f = config.train_input_fn()
+    in_f = train_input_fn()
     estimator_train.train(input_fn=in_f, hooks=hooks)
 elif args.mode == 'eval':
     ch = None
-    in_f = config.eval_input_fn()
+    in_f = eval_input_fn()
     while True:
         if ch == estimator_eval.latest_checkpoint():
             tf.logging.info('waiting for checkpoint')
@@ -146,18 +162,14 @@ elif args.mode == 'eval':
         tf.logging.info('loading checkpoint: ' + ch)
         estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval / config.batch_size, hooks=hooks)
 elif args.mode == 'train-eval':
-    in_f = config.train_input_fn()
+    train_in = train_input_fn()
+    eval_in = eval_input_fn()
     ch = None
     while True:
-        estimator_train.train(input_fn=in_f, steps=config.save_checkpoints_steps * config.eval_every_chackpoint,
+        estimator_train.train(input_fn=train_in, steps=config.save_checkpoints_steps * config.eval_every_chackpoint,
                               hooks=hooks)
         if ch == estimator_train.latest_checkpoint():
             break
         ch = estimator_train.latest_checkpoint()
         tf.logging.info('loading checkpoint: ' + ch)
-        estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval / config.batch_size, hooks=hooks)
-else:
-    for name, pred in zip(args.test_urls.split(','), estimator.predict(input_fn=test_input_fn)):
-        print('![](', name, ')\n',
-              '\n'.join('`{} ({})`\n'.format(' '.join([config.caption_vocabulary.id_to_word(i) for i in ides]), coef)
-                        for coef, ides in zip(pred['coef'], np.transpose(pred['ides']))))
+        estimator_eval.evaluate(input_fn=eval_in, steps=config.num_examples_per_eval / config.batch_size, hooks=hooks)

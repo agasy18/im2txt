@@ -2,7 +2,6 @@ from os import path, rename
 import tensorflow as tf
 import numpy as np
 from feature_extractor import FeatureExtractor
-import image_processing
 from utlis import working_dir
 from record import map_dataset_to_record, int64_feature, floats_feature, get_records_length
 
@@ -10,13 +9,13 @@ cache_file_name = 'features.tfrecords'
 size_file_name = 'features.size'
 
 
-def input_fn(dataset, feature_extractor: FeatureExtractor, is_training, cache_dir, batch_size, max_epochs):
+def input_fn(dataset, image_preprocessor, feature_extractor: FeatureExtractor, is_training, cache_dir, batch_size, max_epochs):
     cache_dir = path.join(cache_dir, feature_extractor.name())
     with working_dir(cache_dir, True):
         cd = dataset.captions_dataset
         cdl = dataset.captions_dataset_length
         if not path.isfile(cache_file_name):
-            create_feature_records(dataset.image_dataset, cdl, feature_extractor, cd, is_training)
+            create_feature_records(dataset.image_dataset, cdl, image_preprocessor, feature_extractor, cd, is_training)
 
     def input_f():
         with working_dir(cache_dir, True):
@@ -77,9 +76,9 @@ def feature_dataset():
     return tf.data.TFRecordDataset([path.abspath(cache_file_name)]).map(_parse), feature_size
 
 
-def create_feature_records(image_dataset: tf.data.Dataset, dataset_length: int, feature_extuctor, captions_dataset, is_training):
+def create_feature_records(image_dataset: tf.data.Dataset, dataset_length: int, image_preprocessor, feature_extuctor, captions_dataset, is_training):
     image_dataset_iter = image_dataset.make_one_shot_iterator().get_next()
-    img = image_processing.process_image(image_dataset_iter['jpeg'], is_training=is_training)
+    img = image_preprocessor(image_dataset_iter['jpeg'], is_training=is_training)
     features, *_ = feature_extuctor.build(images=tf.expand_dims(img, 0),
                                           mode=tf.estimator.ModeKeys.TRAIN if is_training
                                           else tf.estimator.ModeKeys.EVAL,
