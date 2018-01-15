@@ -6,7 +6,7 @@ import train_utils
 import train_eval_inputs
 from functools import partial
 import tensorflow as tf
-
+import image_processing
 import feature2seq
 
 keep_checkpoint_max = 20
@@ -86,21 +86,12 @@ feature_detector = ObjectDetectorFE(cache_dir=data_dir,
                                         ]], axis=1, name='selected_features'),
                                     name='ssd_mobilenet_v1_coco_2017_11_17_fe_Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256_Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128')
 
-eval_input_fn = partial(train_eval_inputs.input_fn,
-                        dataset=eval_dataset,
-                        feature_extractor=feature_detector,
-                        is_training=False,
-                        cache_dir=eval_dataset.records_dir,
-                        batch_size=batch_size,
-                        max_epochs=1000000)
+image_preprocessor = partial(image_processing.process_image,
+                             height=299,
+                             width=299,
+                             image_format="jpeg")
 
-train_input_fn = partial(train_eval_inputs.input_fn,
-                         dataset=train_dataset,
-                         feature_extractor=feature_detector,
-                         is_training=True,
-                         cache_dir=train_dataset.records_dir,
-                         batch_size=batch_size,
-                         max_epochs=max_train_epochs)
+
 
 predictor = partial(beam_search.beam_search,
                     beam_size=beam_size,
