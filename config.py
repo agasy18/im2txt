@@ -11,13 +11,13 @@ import feature2seq
 
 keep_checkpoint_max = 20
 max_train_epochs = 500
-save_checkpoints_steps = 1000
-train_log_step_count_steps = 500
-eval_log_step_count_steps = 50
+save_checkpoints_steps = 10000
+train_log_step_count_steps = 5000
+eval_log_step_count_steps = 500
 eval_every_chackpoint = 5
 
-batch_size = 1024
-initial_learning_rate = 4.0
+batch_size = 32
+initial_learning_rate = 0.5
 final_learning_rate = 0.02
 decay_count = 6
 learning_rate_decay_factor = 0.55
@@ -31,6 +31,7 @@ num_lstm_units = 512
 initializer_scale = 0.08
 embedding_size = 512
 lstm_dropout_keep_prob = 0.7
+features_dropout_keep_prob = 0.2
 
 data_dir = 'data'
 
@@ -106,7 +107,8 @@ seq_generator = partial(feature2seq.feature2seq,
                         initializer_scale=initializer_scale,
                         embedding_size=embedding_size,
                         num_lstm_units=num_lstm_units,
-                        lstm_dropout_keep_prob=lstm_dropout_keep_prob)
+                        lstm_dropout_keep_prob=lstm_dropout_keep_prob,
+                        features_dropout_keep_prob=features_dropout_keep_prob)
 
 seq_loss = train_utils.seq_loss
 

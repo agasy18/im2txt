@@ -12,7 +12,7 @@ from utlis import call_program, working_dir
 from tensorflow.python import debug as tf_debug
 
 parser = ArgumentParser()
-parser.add_argument('mode', choices=['train', 'test', 'train-eval'])
+parser.add_argument('mode', choices=['train', 'eval', 'train-eval'])
 parser.add_argument('--debug', action='store_true')
 
 parser.add_argument('--model_dir', default='model', help="dir for storing generated model files and logs")

@@ -11,55 +11,20 @@ def feature2seq(features,
                 initializer_scale,
                 embedding_size,
                 num_lstm_units,
-                lstm_dropout_keep_prob):
+                lstm_dropout_keep_prob,
+                features_dropout_keep_prob):
     initializer = tf.random_uniform_initializer(
         minval=-initializer_scale,
         maxval=initializer_scale
     )
 
-    # features = tf.Print(features, [input_seq[0], target_seq[0], mask[0], features[0]], summarize=10000)
-    with tf.variable_scope("pre_image_embedding_1") as scope:
-        pre_image_embeddings = tf.contrib.layers.fully_connected(
-            inputs=features,
-            num_outputs=embedding_size * 5,
-            activation_fn=tf.nn.relu,
-            weights_initializer=initializer,
-            biases_initializer=tf.zeros_initializer,
-            scope=scope)
-
-        pre_image_embeddings = contrib.layers.batch_norm(
-            inputs=pre_image_embeddings
-        )
-    with tf.variable_scope("pre_image_embedding_2") as scope:
-        pre_image_embeddings = tf.contrib.layers.fully_connected(
-            inputs=pre_image_embeddings,
-            num_outputs=embedding_size * 3,
-            activation_fn=tf.nn.relu,
-            weights_initializer=initializer,
-            biases_initializer=tf.zeros_initializer,
-            scope=scope)
-
-        pre_image_embeddings = contrib.layers.batch_norm(
-            inputs=pre_image_embeddings
-        )
-
-    with tf.variable_scope("pre_image_embedding_3") as scope:
-        pre_image_embeddings = tf.contrib.layers.fully_connected(
-            inputs=pre_image_embeddings,
-            num_outputs=embedding_size * 2,
-            activation_fn=tf.nn.relu,
-            weights_initializer=initializer,
-            biases_initializer=tf.zeros_initializer,
-            scope=scope)
-
-        pre_image_embeddings = contrib.layers.batch_norm(
-            inputs=pre_image_embeddings
-        )
+    if mode == tf.estimator.ModeKeys.TRAIN:
+        features = tf.layers.dropout(features, 1.0 - features_dropout_keep_prob, training=True)
 
     # Image Embedding
     with tf.variable_scope("image_embedding") as scope:
         image_embeddings = tf.contrib.layers.fully_connected(
-            inputs=pre_image_embeddings,
+            inputs=features,
             num_outputs=embedding_size,
             activation_fn=None,
             weights_initializer=initializer,
