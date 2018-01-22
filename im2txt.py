@@ -65,8 +65,8 @@ if model_name is None:
 
 def caption_log_fn(id, input_seq, mask, targets):
     s = '[{}] {} | {}'.format(id,
-                              ' '.join(config.caption_vocabulary.id_to_word(i) for i in input_seq[:sum(mask)]),
-                              ' '.join(config.caption_vocabulary.id_to_word(t) for t in targets)
+                              ' '.join(config.caption_vocabulary().id_to_word(i) for i in input_seq[:sum(mask)]),
+                              ' '.join(config.caption_vocabulary().id_to_word(t) for t in targets)
                               )
     tf.logging.info(s)
     return s
@@ -160,7 +160,7 @@ elif args.mode == 'eval':
             continue
         ch = estimator_eval.latest_checkpoint()
         tf.logging.info('loading checkpoint: ' + ch)
-        estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval / config.batch_size, hooks=hooks)
+        estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval() / config.batch_size, hooks=hooks)
 elif args.mode == 'train-eval':
     train_in = train_input_fn()
     eval_in = eval_input_fn()
@@ -172,4 +172,4 @@ elif args.mode == 'train-eval':
             break
         ch = estimator_train.latest_checkpoint()
         tf.logging.info('loading checkpoint: ' + ch)
-        estimator_eval.evaluate(input_fn=eval_in, steps=config.num_examples_per_eval / config.batch_size, hooks=hooks)
+        estimator_eval.evaluate(input_fn=eval_in, steps=config.num_examples_per_eval() / config.batch_size, hooks=hooks)

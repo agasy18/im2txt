@@ -8,6 +8,7 @@ from functools import partial
 import tensorflow as tf
 import image_processing
 import feature2seq
+import numpy as np
 
 keep_checkpoint_max = 20
 max_train_epochs = 500
@@ -51,13 +52,13 @@ eval_dataset = mscoco.MSCoco(cache_dir=data_dir,
                              annotations_zip='annotations/annotations_trainval2014.zip',
                              image_dir='val2014')
 
-num_examples_per_train_epoch = train_dataset.captions_dataset_length
+num_examples_per_train_epoch = lambda: train_dataset.captions_dataset_length
 
-num_examples_per_eval = eval_dataset.captions_dataset_length
+num_examples_per_eval = lambda: eval_dataset.captions_dataset_length
 
-caption_vocabulary = train_dataset.vocabulary
+caption_vocabulary = lambda: train_dataset.vocabulary
 
-vocab_size = len(caption_vocabulary)
+vocab_size = lambda: len(caption_vocabulary())
 
 
 # Feature extractor
@@ -86,46 +87,76 @@ feature_detector = ObjectDetectorFE(cache_dir=data_dir,
                                             'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256/Relu6'
                                         ]], axis=1, name='selected_features'),
                                     name='ssd_mobilenet_v1_coco_2017_11_17_fe_Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256_Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128')
+image_size = 299
 
 image_preprocessor = partial(image_processing.process_image,
-                             height=299,
-                             width=299,
+                             height=image_size,
+                             width=image_size,
                              image_format="jpeg")
 
 
+def predictor(*args, **keywords):
+    return beam_search.beam_search(*args, beam_size=beam_size,
+                                   vocab_size=vocab_size(),
+                                   start_word_index=caption_vocabulary().word_to_id(train_dataset.start_word),
+                                   end_word_index=caption_vocabulary().word_to_id(train_dataset.end_word),
+                                   seq_max_len=seq_max_len,
+                                   **keywords)
 
-predictor = partial(beam_search.beam_search,
-                    beam_size=beam_size,
-                    vocab_size=vocab_size,
-                    start_word_index=caption_vocabulary.word_to_id(train_dataset.start_word),
-                    end_word_index=caption_vocabulary.word_to_id(train_dataset.end_word),
-                    seq_max_len=seq_max_len)
 
-seq_generator = partial(feature2seq.feature2seq,
-                        vocab_size=vocab_size,
-                        predictor=predictor,
-                        initializer_scale=initializer_scale,
-                        embedding_size=embedding_size,
-                        num_lstm_units=num_lstm_units,
-                        lstm_dropout_keep_prob=lstm_dropout_keep_prob,
-                        features_dropout_keep_prob=features_dropout_keep_prob)
+def seq_output_constructor(pred, out_dic):
+    for coef, ides in zip(pred['coefs'], np.transpose(pred['ides'])):
+        out_dic['coefficient'] = float(coef)
+        words = [caption_vocabulary().id_to_word(i) for i in ides]
+        seq = []
+        for w in words:
+            if w == train_dataset.start_word and not len(seq):
+                continue
+            elif w == train_dataset.end_word or (len(seq) and w == train_dataset.start_word):
+                break
+            seq.append(w)
+
+        out_dic['words'] = words
+        out_dic['sequence'] = ' '.join(seq)
+
+
+def output_constructor(pred, out_dic):
+    seq_output_constructor(pred, out_dic)
+    feature_detector.output_constructor(pred, out_dic)
+
+
+def seq_generator(*args, **keywords):
+    return feature2seq.feature2seq(*args,
+                                   vocab_size=vocab_size(),
+                                   predictor=predictor,
+                                   initializer_scale=initializer_scale,
+                                   embedding_size=embedding_size,
+                                   num_lstm_units=num_lstm_units,
+                                   lstm_dropout_keep_prob=lstm_dropout_keep_prob,
+                                   features_dropout_keep_prob=features_dropout_keep_prob,
+                                   **keywords)
+
 
 seq_loss = train_utils.seq_loss
 
-optimize_loss = partial(train_utils.optimize_loss,
-                        initial_learning_rate=initial_learning_rate,
-                        num_examples_per_epoch=num_examples_per_train_epoch,
-                        num_epochs_per_decay=num_epochs_per_decay,
-                        learning_rate_decay_factor=learning_rate_decay_factor,
-                        clip_gradients=clip_gradients,
-                        batch_size=batch_size,
-                        optimizer=optimizer,
-                        summaries=[
-                            "learning_rate",
-                            "gradients",
-                            "gradient_norm",
-                            "global_gradient_norm",
-                            "epoch"
-                        ])
+
+def optimize_loss(*args, **keywords):
+    return train_utils.optimize_loss(*args,
+                                     initial_learning_rate=initial_learning_rate,
+                                     num_examples_per_epoch=num_examples_per_train_epoch(),
+                                     num_epochs_per_decay=num_epochs_per_decay,
+                                     learning_rate_decay_factor=learning_rate_decay_factor,
+                                     clip_gradients=clip_gradients,
+                                     batch_size=batch_size,
+                                     optimizer=optimizer,
+                                     summaries=[
+                                         "learning_rate",
+                                         "gradients",
+                                         "gradient_norm",
+                                         "global_gradient_norm",
+                                         "epoch"
+                                     ],
+                                     **keywords)
+
 
 project_ignore = [data_dir]

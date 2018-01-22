@@ -83,7 +83,7 @@ def beam_search(initial_state,
         ]):
             return tf.logical_and(cond_1, cond_2)
 
-    with tf.control_dependencies([tf.assert_equal(1, tf.shape(initial_state)[0],
+    with tf.control_dependencies([tf.assert_equal(1, tf.shape(initial_state[0])[0],
                                                   message='BEAM Search batch_size=1')]):
         i = tf.constant(0, dtype=tf.int32, name='i')
         initial_pred = (
@@ -110,4 +110,4 @@ def beam_search(initial_state,
     ]):
         ides = tf.expand_dims(ides, 0, name='ides')
         coefs = tf.expand_dims(coefs, 0, name='coefs')
-        return ides, coefs
+        return {'ides': ides, 'coefs': coefs}
