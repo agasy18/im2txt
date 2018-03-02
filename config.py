@@ -9,30 +9,31 @@ import tensorflow as tf
 import image_processing
 import feature2seq
 import numpy as np
+from os import getenv
 
 keep_checkpoint_max = 20
 max_train_epochs = 500
-save_checkpoints_steps = 10000
-train_log_step_count_steps = 5000
-eval_log_step_count_steps = 500
+save_checkpoints_steps = 1000
+train_log_step_count_steps = 500
+eval_log_step_count_steps = 50
 eval_every_chackpoint = 5
 
-batch_size = 32
-initial_learning_rate = 0.5
-final_learning_rate = 0.02
+batch_size = int(getenv('batch_size', '1024'))
+initial_learning_rate = float(getenv('initial_learning_rate', '4.0'))
 decay_count = 6
-learning_rate_decay_factor = 0.55
+learning_rate_decay_factor = float(getenv('learning_rate_decay_factor', '0.55'))
 num_epochs_per_decay = max_train_epochs / (decay_count + 1)
 optimizer = 'Adagrad'
-clip_gradients = 5.0
+clip_gradients = float(getenv('clip_gradients', '5.0'))
 seq_max_len = 100
 beam_size = 1
 num_lstm_units = 512
+weight_declay = 10.0
 
 initializer_scale = 0.08
 embedding_size = 512
-lstm_dropout_keep_prob = 0.7
-features_dropout_keep_prob = 0.2
+lstm_dropout_keep_prob = float(getenv('lstm_dropout_keep_prob', '0.7'))
+features_dropout_keep_prob = float(getenv('features_dropout_keep_prob', '0.7'))
 
 data_dir = 'data'
 
@@ -77,15 +78,17 @@ def flat_tensor(t):
     return tf.reshape(t, [tf.shape(t)[0], -1])
 
 
+feature_layers = getenv('feature_layers',
+                        'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128/Relu6,FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256/Relu6').split(
+    ',')
+
 feature_detector = ObjectDetectorFE(cache_dir=data_dir,
                                     url='http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_2017_11_17.tar.gz',
                                     tar='ssd_mobilenet_v1_coco_2017_11_17.tar.gz',
                                     model_file='ssd_mobilenet_v1_coco_2017_11_17/frozen_inference_graph.pb',
                                     feature_selector=lambda: tf.concat(
-                                        [flat_tensor(tf.get_default_graph().get_tensor_by_name(n + ':0')) for n in [
-                                            'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128/Relu6',
-                                            'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256/Relu6'
-                                        ]], axis=1, name='selected_features'),
+                                        [flat_tensor(tf.get_default_graph().get_tensor_by_name(n + ':0')) for n in
+                                         feature_layers], axis=1, name='selected_features'),
                                     name='ssd_mobilenet_v1_coco_2017_11_17_fe_Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256_Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128')
 image_size = 299
 
@@ -125,16 +128,23 @@ def output_constructor(pred, out_dic):
     feature_detector.output_constructor(pred, out_dic)
 
 
-def seq_generator(*args, **keywords):
-    return feature2seq.feature2seq(*args,
+def seq_generator(features, input_seq, mask, mode):
+    if mode == tf.estimator.ModeKeys.TRAIN:
+        features = tf.layers.dropout(features, 1.0 - features_dropout_keep_prob, training=True)
+
+    features = tf.layers.dense(features, embedding_size)
+
+    return feature2seq.feature2seq(features=features,
+                                   input_seq=input_seq,
+                                   mask=mask,
+                                   mode=mode,
                                    vocab_size=vocab_size(),
                                    predictor=predictor,
                                    initializer_scale=initializer_scale,
                                    embedding_size=embedding_size,
                                    num_lstm_units=num_lstm_units,
                                    lstm_dropout_keep_prob=lstm_dropout_keep_prob,
-                                   features_dropout_keep_prob=features_dropout_keep_prob,
-                                   **keywords)
+                                   features_dropout_keep_prob=features_dropout_keep_prob)
 
 
 seq_loss = train_utils.seq_loss

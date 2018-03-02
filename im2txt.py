@@ -92,7 +92,22 @@ def im2txt(features, labels, mode):
             tf.argmax(pred['logits'], 1)[0:tf.shape(mask)[1]],
         ], tf.string, stateful=False))
 
-    total_loss, losses = config.seq_loss(targets=target_seq, logits=pred['logits'], mask=mask)
+    batch_loss, losses = config.seq_loss(targets=target_seq, logits=pred['logits'], mask=mask)
+
+    tf.summary.scalar('loss/sequence', batch_loss)
+    tf.losses.add_loss(batch_loss)
+
+    weight_declay_loss = tf.multiply(config.weight_declay, tf.reduce_mean([tf.nn.l2_loss(v) / tf.to_float(tf.size(v))
+                                                                           for v in tf.trainable_variables()]),
+                                     name='weight_declay_loss')
+
+    tf.summary.scalar('loss/weight_declay', weight_declay_loss)
+    tf.losses.add_loss(weight_declay_loss)
+
+    total_loss = tf.losses.get_total_loss()
+
+    tf.summary.scalar('loss/total_loss', total_loss)
+
     if mode == tf.estimator.ModeKeys.EVAL:
         return tf.estimator.EstimatorSpec(mode=mode,
                                           loss=total_loss,
@@ -104,15 +119,17 @@ def im2txt(features, labels, mode):
                                           train_op=config.optimize_loss(total_loss))
 
 
+model_dir_path = model_dir(model_name)
+
 estimator_train = tf.estimator.Estimator(model_fn=im2txt,
-                                         model_dir=model_dir(model_name),
+                                         model_dir=model_dir_path,
                                          config=tf.estimator.RunConfig().replace(
                                              save_checkpoints_steps=config.save_checkpoints_steps,
                                              keep_checkpoint_max=config.keep_checkpoint_max,
                                              log_step_count_steps=config.train_log_step_count_steps
                                          )) if 'train' in args.mode else None
 estimator_eval = tf.estimator.Estimator(model_fn=im2txt,
-                                        model_dir=model_dir(model_name),
+                                        model_dir=model_dir_path,
                                         config=tf.estimator.RunConfig().replace(
                                             save_checkpoints_steps=config.save_checkpoints_steps,
                                             keep_checkpoint_max=config.keep_checkpoint_max,
@@ -144,6 +161,18 @@ def train_input_fn():
 
 hooks = []
 
+last_eval_results = []
+
+eval_info_path = path.join(model_dir_path, 'eval-info.json')
+
+
+def store_eval(data):
+    last_eval_results.append(dict((k, float(v)) for k, v in data.items()))
+    with open(eval_info_path, 'w') as f:
+        import json
+        json.dump(last_eval_results, f, indent=2)
+
+
 if args.debug:
     hooks.append(tf_debug.LocalCLIDebugHook())
 
@@ -160,7 +189,8 @@ elif args.mode == 'eval':
             continue
         ch = estimator_eval.latest_checkpoint()
         tf.logging.info('loading checkpoint: ' + ch)
-        estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval() / config.batch_size, hooks=hooks)
+        e_data = estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval() / config.batch_size, hooks=hooks)
+        store_eval(e_data)
 elif args.mode == 'train-eval':
     train_in = train_input_fn()
     eval_in = eval_input_fn()
@@ -172,4 +202,5 @@ elif args.mode == 'train-eval':
             break
         ch = estimator_train.latest_checkpoint()
         tf.logging.info('loading checkpoint: ' + ch)
-        estimator_eval.evaluate(input_fn=eval_in, steps=config.num_examples_per_eval() / config.batch_size, hooks=hooks)
+        e_data = estimator_eval.evaluate(input_fn=eval_in, steps=config.num_examples_per_eval() / config.batch_size, hooks=hooks)
+        store_eval(e_data)

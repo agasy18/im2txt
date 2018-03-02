@@ -18,9 +18,6 @@ def feature2seq(features,
         maxval=initializer_scale
     )
 
-    if mode == tf.estimator.ModeKeys.TRAIN:
-        features = tf.layers.dropout(features, 1.0 - features_dropout_keep_prob, training=True)
-
     # Image Embedding
     with tf.variable_scope("image_embedding") as scope:
         image_embeddings = tf.contrib.layers.fully_connected(
