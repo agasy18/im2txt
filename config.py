@@ -18,7 +18,7 @@ train_log_step_count_steps = 500
 eval_log_step_count_steps = 50
 eval_every_chackpoint = 5
 
-batch_size = int(getenv('batch_size', '1024'))
+batch_size = int(getenv('batch_size', '256'))
 initial_learning_rate = float(getenv('initial_learning_rate', '4.0'))
 decay_count = 6
 learning_rate_decay_factor = float(getenv('learning_rate_decay_factor', '0.55'))
@@ -28,7 +28,7 @@ clip_gradients = float(getenv('clip_gradients', '5.0'))
 seq_max_len = 100
 beam_size = 1
 num_lstm_units = 512
-weight_declay = 10.0
+weight_declay = 1.0
 
 initializer_scale = 0.08
 embedding_size = 512

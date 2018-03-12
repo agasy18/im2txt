@@ -5,10 +5,12 @@ import random
 from argparse import ArgumentParser
 
 import numpy as np
+import time
 
 parser = ArgumentParser()
 parser.add_argument('--gen', action='store_true')
 parser.add_argument('--model_dir', default='driver', help="dir for storing generated model files and logs")
+parser.add_argument('--model_name', default=None, help="load specified model")
 args = parser.parse_args()
 
 values = [
@@ -35,6 +37,7 @@ model_dir = args.model_dir
 
 def load_eval_json(dir):
     jp = os.path.join(dir, 'eval-info.json')
+    print('Loading: ' + jp)
     try:
         with open(jp) as f:
             import json
@@ -48,16 +51,24 @@ def get_metric(info):
 
 
 def overfeeting(m):
-    return len(m) > 1 and sorted(m) == m
+    return len(m) > 1 and not sorted(m, reverse=True) == m
 
 
 def dont_training(m):
-    return len(m) > 3 and m[-1] - m[-2] <= m[-2] - m[-3] <= 0.003
+    return len(m) > 3 and m[-3] <= m[-2] <= m[-1]
 
 
 def validate_eval_info(info):
     m = get_metric(info)
-    return not overfeeting(m) and not dont_training(m)
+    print('Metric array')
+    print(m)
+    # if overfeeting(m):
+    #     print('Overfeeted')
+    #     return False
+    if dont_training(m):
+        print('training not going')
+        return False
+    return True
 
 
 def call(var, env):
@@ -66,33 +77,41 @@ def call(var, env):
         env[v[0]] = str(v[random.randrange(1, len(v))])
         call(var[1:], env)
     else:
-        exec_name = '-'.join('{}:{}'.format(aliases[k], vx) for k, vx in sorted(env.items()))
+        if args.gen:
+            exec_name = '-'.join('{}:{}'.format(aliases[k], vx) for k, vx in sorted(env.items()))
+        else:
+            exec_name = time.strftime("%Y%m%d-%H%M%S")
+        if args.model_name:
+            exec_name = args.model_name
         m_dir = os.path.join(model_dir, exec_name)
-        if os.path.isdir(m_dir):
+        if os.path.isdir(m_dir) and args.gen:
             print('Skip:' + m_dir)
             return
         print('Exec: ' + m_dir)
-        process = subprocess.Popen(['python3', 'im2txt.py', 'train-eval', '--model_dir', m_dir],
+        process = subprocess.Popen(['python3', 'im2txt.py', 'train-eval',
+                                    '--model_dir', model_dir,
+                                    '--model_name', exec_name],
                                    env={**env, **os.environ.copy()},
                                    stdin=sys.stdin,
                                    stdout=sys.stdout,
                                    stderr=sys.stderr)
-        try:
-            for i in range(8):
-                ev = process.wait(60 * 60)
+
+        for i in range(8 * 60):
+            try:
+                ev = process.wait(60)
                 if ev != 0:
                     exit(ev)
+                return
+            except subprocess.TimeoutExpired:
                 j = load_eval_json(m_dir)
                 if not j:
                     print('Can\'t find eval-info.json in:' + m_dir)
                 elif validate_eval_info(j):
                     continue
-                print('Terminating ...')
+                print('Terminating validate_eval_info ...')
                 process.terminate()
-                break
-        except subprocess.TimeoutExpired:
-            print('Terminating ...')
-            process.terminate()
+        print('Terminating Timeout ...')
+        process.terminate()
 
 
 if args.gen:

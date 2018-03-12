@@ -102,7 +102,7 @@ def im2txt(features, labels, mode):
                                      name='weight_declay_loss')
 
     tf.summary.scalar('loss/weight_declay', weight_declay_loss)
-    tf.losses.add_loss(weight_declay_loss)
+    tf.losses.add_loss(weight_declay_loss, loss_collection=tf.GraphKeys.REGULARIZATION_LOSSES)
 
     total_loss = tf.losses.get_total_loss()
 
@@ -167,6 +167,11 @@ eval_info_path = path.join(model_dir_path, 'eval-info.json')
 
 
 def store_eval(data):
+    global last_eval_results
+    if len(last_eval_results) == 0 and path.isfile(eval_info_path):
+        import json
+        with open(eval_info_path) as f:
+            last_eval_results = json.load(f)
     last_eval_results.append(dict((k, float(v)) for k, v in data.items()))
     with open(eval_info_path, 'w') as f:
         import json
