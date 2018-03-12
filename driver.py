@@ -2,7 +2,14 @@ import os
 import subprocess
 import sys
 import random
+from argparse import ArgumentParser
+
 import numpy as np
+
+parser = ArgumentParser()
+parser.add_argument('--gen', action='store_true')
+parser.add_argument('--model_dir', default='driver', help="dir for storing generated model files and logs")
+args = parser.parse_args()
 
 values = [
     ['batch_size', 32, 64, 512],
@@ -23,7 +30,7 @@ for v, *_ in values:
     if v not in aliases:
         aliases[v] = v[:1]
 
-model_dir = sys.argv[1] if len(sys.argv) > 0 else "driver"
+model_dir = args.model_dir
 
 
 def load_eval_json(dir):
@@ -88,5 +95,7 @@ def call(var, env):
             process.terminate()
 
 
-while True:
-    call(values, {})
+if args.gen:
+    while True:
+        call(values, {})
+call([], {})

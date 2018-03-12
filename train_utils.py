@@ -23,6 +23,7 @@ def optimize_loss(total_loss,
                   batch_size,
                   optimizer,
                   summaries):
+    global_step = None
     learning_rate_decay_fn = None
     with tf.variable_scope('learning_rate'):
         num_batches_per_epoch = (num_examples_per_epoch / batch_size)
