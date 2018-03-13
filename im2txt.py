@@ -97,10 +97,12 @@ def im2txt(features, labels, mode):
     tf.summary.scalar('loss/sequence', batch_loss)
     tf.losses.add_loss(batch_loss)
 
-    weight_declay_loss = tf.multiply(config.weight_declay, tf.reduce_mean([tf.nn.l2_loss(v) / tf.to_float(tf.size(v))
-                                                                           for v in tf.trainable_variables()]),
-                                     name='weight_declay_loss')
+    weight_declay_loss = tf.reduce_mean([tf.nn.l2_loss(v) / tf.to_float(tf.size(v))
+                                         for v in tf.trainable_variables()],
+                                        name='weight_declay_loss_abs')
 
+    tf.summary.scalar('loss/weight_declay_abs', weight_declay_loss)
+    weight_declay_loss = tf.multiply(weight_declay_loss, config.weight_declay, name='weight_declay_loss')
     tf.summary.scalar('loss/weight_declay', weight_declay_loss)
     tf.losses.add_loss(weight_declay_loss, loss_collection=tf.GraphKeys.REGULARIZATION_LOSSES)
 
@@ -172,11 +174,14 @@ def store_eval(data):
         import json
         with open(eval_info_path) as f:
             last_eval_results = json.load(f)
-    last_eval_results.append(dict((k, float(v)) for k, v in data.items()))
+    if data:
+        last_eval_results.append(dict((k, float(v)) for k, v in data.items()))
     with open(eval_info_path, 'w') as f:
         import json
         json.dump(last_eval_results, f, indent=2)
 
+
+store_eval(None)
 
 if args.debug:
     hooks.append(tf_debug.LocalCLIDebugHook())
@@ -194,7 +199,8 @@ elif args.mode == 'eval':
             continue
         ch = estimator_eval.latest_checkpoint()
         tf.logging.info('loading checkpoint: ' + ch)
-        e_data = estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval() / config.batch_size, hooks=hooks)
+        e_data = estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval() / config.batch_size,
+                                         hooks=hooks)
         store_eval(e_data)
 elif args.mode == 'train-eval':
     train_in = train_input_fn()
@@ -207,5 +213,6 @@ elif args.mode == 'train-eval':
             break
         ch = estimator_train.latest_checkpoint()
         tf.logging.info('loading checkpoint: ' + ch)
-        e_data = estimator_eval.evaluate(input_fn=eval_in, steps=config.num_examples_per_eval() / config.batch_size, hooks=hooks)
+        e_data = estimator_eval.evaluate(input_fn=eval_in, steps=config.num_examples_per_eval() / config.batch_size,
+                                         hooks=hooks)
         store_eval(e_data)

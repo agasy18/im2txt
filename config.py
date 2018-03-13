@@ -28,7 +28,7 @@ clip_gradients = float(getenv('clip_gradients', '5.0'))
 seq_max_len = 100
 beam_size = 1
 num_lstm_units = 512
-weight_declay = 1.0
+weight_declay = float(getenv('weight_declay', '1.0'))
 
 initializer_scale = 0.08
 embedding_size = 512

@@ -14,12 +14,13 @@ parser.add_argument('--model_name', default=None, help="load specified model")
 args = parser.parse_args()
 
 values = [
-    ['batch_size', 32, 64, 512],
-    ['initial_learning_rate'] + list(np.arange(2.0, 7.0, 0.1)),
-    ['learning_rate_decay_factor'] + list(np.arange(0.3, 0.7, 0.01)),
-    ['clip_gradients'] + list(np.arange(2.0, 8.0, 0.1)),
-    ['lstm_dropout_keep_prob'] + list(np.arange(0.3, 0.7, 0.1)),
-    ['features_dropout_keep_prob'] + list(np.arange(0.3, 0.7, 0.1))
+    # ['batch_size', 32, 64, 512],
+    # ['initial_learning_rate'] + list(np.arange(2.0, 7.0, 0.1)),
+    # ['learning_rate_decay_factor'] + list(np.arange(0.3, 0.7, 0.01)),
+    # ['clip_gradients'] + list(np.arange(2.0, 8.0, 0.1)),
+    # ['lstm_dropout_keep_prob'] + list(np.arange(0.3, 0.7, 0.1)),
+    # ['features_dropout_keep_prob'] + list(np.arange(0.3, 0.7, 0.1)),
+    ['weight_declay'] + list(np.arange(0.01, 0.1, 0.03)) + list(np.arange(0.1, 1, 0.3)) + list(np.arange(1, 10, 3)) + list(np.arange(10, 100, 3))
 ]
 
 aliases = {
@@ -104,17 +105,19 @@ def call(var, env):
                 return
             except subprocess.TimeoutExpired:
                 j = load_eval_json(m_dir)
-                if not j:
+                if j is None:
                     print('Can\'t find eval-info.json in:' + m_dir)
                 elif validate_eval_info(j):
                     continue
                 print('Terminating validate_eval_info ...')
                 process.terminate()
+                return
         print('Terminating Timeout ...')
         process.terminate()
 
 
 if args.gen:
+    print('Runing inf loop')
     while True:
         call(values, {})
 call([], {})
