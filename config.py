@@ -154,6 +154,13 @@ seq_loss = train_utils.seq_loss
 
 
 def optimize_loss(*args, **keywords):
+    variables = tf.trainable_variables()
+    var_skip_list = [
+        'sequence/lstm/basic_lstm_cell/kernel', 
+        'sequence/lstm/basic_lstm_cell/bias', 
+        'sequence/image_embedding/weights'
+    ]
+    variables = [v for v in variables if v.name not in var_skip_list]
     return train_utils.optimize_loss(*args,
                                      initial_learning_rate=initial_learning_rate,
                                      num_examples_per_epoch=num_examples_per_train_epoch(),
@@ -169,6 +176,7 @@ def optimize_loss(*args, **keywords):
                                          "global_gradient_norm",
                                          "epoch"
                                      ],
+                                     variables = tf.trainable_variables(),
                                      **keywords)
 
 

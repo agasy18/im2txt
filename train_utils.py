@@ -22,7 +22,8 @@ def optimize_loss(total_loss,
                   clip_gradients,
                   batch_size,
                   optimizer,
-                  summaries):
+                  summaries,
+                  variables=None):
     global_step = None
     learning_rate_decay_fn = None
     with tf.variable_scope('learning_rate'):
@@ -55,4 +56,5 @@ def optimize_loss(total_loss,
         optimizer=optimizer,
         clip_gradients=clip_gradients,
         summaries=summaries,
+        variables=variables,
         learning_rate_decay_fn=learning_rate_decay_fn)
