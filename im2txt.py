@@ -189,7 +189,7 @@ if args.debug:
 
 if args.mode == 'train':
     in_f = train_input_fn()
-    estimator_train.train(input_fn=in_f, hooks=hooks)
+    estimator_train.train(input_fn=in_f, hooks=hooks + config.train_hooks)
 elif args.mode == 'eval':
     ch = None
     in_f = eval_input_fn()
@@ -201,7 +201,7 @@ elif args.mode == 'eval':
         ch = estimator_eval.latest_checkpoint()
         tf.logging.info('loading checkpoint: ' + ch)
         e_data = estimator_eval.evaluate(input_fn=in_f, steps=config.num_examples_per_eval() / config.batch_size,
-                                         hooks=hooks)
+                                         hooks=hooks + config.eval_hooks)
         store_eval(e_data)
 elif args.mode == 'train-eval':
     train_in = train_input_fn()
@@ -209,11 +209,11 @@ elif args.mode == 'train-eval':
     ch = None
     while True:
         estimator_train.train(input_fn=train_in, steps=config.save_checkpoints_steps * config.eval_every_chackpoint,
-                              hooks=hooks)
+                              hooks=hooks + config.train_hooks)
         if ch == estimator_train.latest_checkpoint():
             break
         ch = estimator_train.latest_checkpoint()
         tf.logging.info('loading checkpoint: ' + ch)
         e_data = estimator_eval.evaluate(input_fn=eval_in, steps=config.num_examples_per_eval() / config.batch_size,
-                                         hooks=hooks)
+                                         hooks=hooks + config.eval_hooks)
         store_eval(e_data)

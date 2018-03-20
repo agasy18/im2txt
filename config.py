@@ -11,6 +11,10 @@ import feature2seq
 import numpy as np
 from os import getenv
 
+train_hooks = []
+eval_hooks = []
+hooks = []
+
 keep_checkpoint_max = 20
 max_train_epochs = 500
 save_checkpoints_steps = 1000
@@ -133,8 +137,6 @@ def seq_generator(features, input_seq, mask, mode):
     if mode == tf.estimator.ModeKeys.TRAIN:
         features = tf.layers.dropout(features, 1.0 - features_dropout_keep_prob, training=True)
 
-    # features = tf.layers.dense(features, embedding_size)
-
     return feature2seq.feature2seq(features=features,
                                    input_seq=input_seq,
                                    mask=mask,
@@ -170,4 +172,17 @@ def optimize_loss(*args, **keywords):
                                      **keywords)
 
 
+from varible_update_hook import VaribleUpdateHook
+
+train_hooks.append(
+    VaribleUpdateHook('/home/aghasy/tmp/im2txt_orig/model.ckpt-2000000', {
+        'sequence/lstm/basic_lstm_cell/kernel':'lstm/BasicLSTMCell/Linear/Matrix',
+        'sequence/lstm/basic_lstm_cell/bias':'lstm/BasicLSTMCell/Linear/Bias',
+        'sequence/image_embedding/weights':'image_embedding/weights',  
+    })
+)
+
+
 project_ignore = [data_dir]
+train_hooks += hooks
+eval_hooks += hooks
