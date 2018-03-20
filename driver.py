@@ -20,7 +20,7 @@ values = [
     # ['clip_gradients'] + list(np.arange(2.0, 8.0, 0.1)),
     # ['lstm_dropout_keep_prob'] + list(np.arange(0.3, 0.7, 0.1)),
     # ['features_dropout_keep_prob'] + list(np.arange(0.3, 0.7, 0.1)),
-    ['weight_declay'] + list(np.arange(0.01, 0.1, 0.03)) + list(np.arange(0.1, 1, 0.3)) + list(np.arange(1, 10, 3)) + list(np.arange(10, 100, 3))
+    ['weight_declay'] + [0.0, 0.01, 0.1, 1.0, 5.0]
 ]
 
 aliases = {

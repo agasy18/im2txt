@@ -28,7 +28,7 @@ clip_gradients = float(getenv('clip_gradients', '5.0'))
 seq_max_len = 100
 beam_size = 1
 num_lstm_units = 512
-weight_declay = float(getenv('weight_declay', '1.0'))
+weight_declay = float(getenv('weight_declay', '0.0'))
 
 initializer_scale = 0.08
 embedding_size = 512
@@ -64,32 +64,33 @@ vocab_size = lambda: len(caption_vocabulary())
 
 # Feature extractor
 
-# feature_detector = Inception(cache_dir=data_dir,
-#                              url='http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz',
-#                              tar='inception_v3_2016_08_28.tar.gz',
-#                              model_file='inception_v3.ckpt')
+feature_detector = Inception(cache_dir=data_dir,
+                             url='http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz',
+                             tar='inception_v3_2016_08_28.tar.gz',
+                             model_file='inception_v3.ckpt')
 
-def feature_selector():
-    g = tf.get_default_graph()
-    g.get_tensor_by_name('FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128/Relu6')
+# def feature_selector():
+#     g = tf.get_default_graph()
+#     g.get_tensor_by_name('FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128/Relu6')
+#
+#
+# def flat_tensor(t):
+#     return tf.reshape(t, [tf.shape(t)[0], -1])
+#
+#
+# feature_layers = getenv('feature_layers',
+#                         'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128/Relu6,FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256/Relu6').split(
+#     ',')
+#
+# feature_detector = ObjectDetectorFE(cache_dir=data_dir,
+#                                     url='http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_2017_11_17.tar.gz',
+#                                     tar='ssd_mobilenet_v1_coco_2017_11_17.tar.gz',
+#                                     model_file='ssd_mobilenet_v1_coco_2017_11_17/frozen_inference_graph.pb',
+#                                     feature_selector=lambda: tf.concat(
+#                                         [flat_tensor(tf.get_default_graph().get_tensor_by_name(n + ':0')) for n in
+#                                          feature_layers], axis=1, name='selected_features'),
+#                                     name='ssd_mobilenet_v1_coco_2017_11_17_fe_Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256_Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128')
 
-
-def flat_tensor(t):
-    return tf.reshape(t, [tf.shape(t)[0], -1])
-
-
-feature_layers = getenv('feature_layers',
-                        'FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128/Relu6,FeatureExtractor/MobilenetV1/Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256/Relu6').split(
-    ',')
-
-feature_detector = ObjectDetectorFE(cache_dir=data_dir,
-                                    url='http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_2017_11_17.tar.gz',
-                                    tar='ssd_mobilenet_v1_coco_2017_11_17.tar.gz',
-                                    model_file='ssd_mobilenet_v1_coco_2017_11_17/frozen_inference_graph.pb',
-                                    feature_selector=lambda: tf.concat(
-                                        [flat_tensor(tf.get_default_graph().get_tensor_by_name(n + ':0')) for n in
-                                         feature_layers], axis=1, name='selected_features'),
-                                    name='ssd_mobilenet_v1_coco_2017_11_17_fe_Conv2d_13_pointwise_2_Conv2d_3_3x3_s2_256_Conv2d_13_pointwise_2_Conv2d_5_3x3_s2_128')
 image_size = 299
 
 image_preprocessor = partial(image_processing.process_image,
@@ -132,7 +133,7 @@ def seq_generator(features, input_seq, mask, mode):
     if mode == tf.estimator.ModeKeys.TRAIN:
         features = tf.layers.dropout(features, 1.0 - features_dropout_keep_prob, training=True)
 
-    features = tf.layers.dense(features, embedding_size)
+    # features = tf.layers.dense(features, embedding_size)
 
     return feature2seq.feature2seq(features=features,
                                    input_seq=input_seq,

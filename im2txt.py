@@ -104,7 +104,8 @@ def im2txt(features, labels, mode):
     tf.summary.scalar('loss/weight_declay_abs', weight_declay_loss)
     weight_declay_loss = tf.multiply(weight_declay_loss, config.weight_declay, name='weight_declay_loss')
     tf.summary.scalar('loss/weight_declay', weight_declay_loss)
-    tf.losses.add_loss(weight_declay_loss, loss_collection=tf.GraphKeys.REGULARIZATION_LOSSES)
+    if config.weight_declay > 0:
+        tf.losses.add_loss(weight_declay_loss, loss_collection=tf.GraphKeys.REGULARIZATION_LOSSES)
 
     total_loss = tf.losses.get_total_loss()
 
