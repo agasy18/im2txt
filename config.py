@@ -24,8 +24,8 @@ eval_every_chackpoint = 5
 
 batch_size = int(getenv('batch_size', '256'))
 initial_learning_rate = float(getenv('initial_learning_rate', '4.0'))
-decay_count = 6
-learning_rate_decay_factor = float(getenv('learning_rate_decay_factor', '0.55'))
+decay_count = 15
+learning_rate_decay_factor = float(getenv('learning_rate_decay_factor', '0.7'))
 num_epochs_per_decay = max_train_epochs / (decay_count + 1)
 optimizer = 'Adagrad'
 clip_gradients = float(getenv('clip_gradients', '5.0'))
@@ -156,11 +156,15 @@ seq_loss = train_utils.seq_loss
 def optimize_loss(*args, **keywords):
     variables = tf.trainable_variables()
     var_skip_list = [
-        'sequence/lstm/basic_lstm_cell/kernel', 
-        'sequence/lstm/basic_lstm_cell/bias', 
-        'sequence/image_embedding/weights'
+        'sequence/lstm/basic_lstm_cell/kernel:0', 
+        'sequence/lstm/basic_lstm_cell/bias:0', 
+#         'sequence/logits/biases',
+#         'sequence/logits/weights',
+#         'sequence/seq_embedding/map'
+#         'sequence/image_embedding/weights:0'
     ]
     variables = [v for v in variables if v.name not in var_skip_list]
+    print ('trainable variables', variables)
     return train_utils.optimize_loss(*args,
                                      initial_learning_rate=initial_learning_rate,
                                      num_examples_per_epoch=num_examples_per_train_epoch(),
@@ -186,9 +190,17 @@ train_hooks.append(
     VaribleUpdateHook('/home/aghasy/tmp/im2txt_orig/model.ckpt-2000000', {
         'sequence/lstm/basic_lstm_cell/kernel':'lstm/BasicLSTMCell/Linear/Matrix',
         'sequence/lstm/basic_lstm_cell/bias':'lstm/BasicLSTMCell/Linear/Bias',
-        'sequence/image_embedding/weights':'image_embedding/weights',  
     })
 )
+
+
+# train_hooks.append(
+#     VaribleUpdateHook('/hdd/train/im2sem/model/googlenet/7-m/model.ckpt-61001', {
+#         'sequence/logits/biases':'sequence/logits/biases',
+#         'sequence/logits/weights':'sequence/logits/weights',
+#         'sequence/seq_embedding/map':'sequence/seq_embedding/map'
+#     })
+# )
 
 
 project_ignore = [data_dir]
