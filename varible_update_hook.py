@@ -5,7 +5,7 @@ class VaribleUpdateHook(tf.train.SessionRunHook):
         self.loader = tf.train.NewCheckpointReader(chackpoint_filepattern)
         self.var_map = var_map
         self.run_count = run_count
-        
+        self.chackpoint_filepattern = chackpoint_filepattern
     
     def begin(self):
         self.assign_ops = []
@@ -19,7 +19,7 @@ class VaribleUpdateHook(tf.train.SessionRunHook):
     
     def after_create_session(self, session, coord):
         if self.run_count > 0:
-            print ("Loading")
+            print ("Loading", self.chackpoint_filepattern)
             session.run(self.assign_ops, self.placeholder_map)
             self.run_count -= 1
         del self.placeholder_map
