@@ -51,8 +51,10 @@ class MSCoco:
                  end_word='</S>',
                  min_word_count=4,
                  vocabulary_file='vocabulary.txt',
-                 records_dir='mscoco'):
+                 records_dir='mscoco',
+                 repeat_annotations=1):
 
+        self.repeat_annotations = repeat_annotations
         self.min_word_count = min_word_count
         self.end_word = end_word
         self.start_word = start_word
@@ -87,7 +89,7 @@ class MSCoco:
         with tf.gfile.FastGFile(self.vocabulary_file, "w") as f:
             f.write("\n".join(["%s %d" % word_count for word_count in word_counts]))
 
-    def load_vocab(self):
+    def _load_vocab(self):
         with tf.gfile.FastGFile(self.vocabulary_file, "r") as f:
             return Vocabulary([x.split(' ')[0] for x in f.readlines()])
 
@@ -117,14 +119,20 @@ class MSCoco:
         if not path.isfile(self.caption_json_path):
             self._download_annotations()
         with tf.gfile.FastGFile(self.caption_json_path, "r") as f:
-            return json.load(f)
+            j = json.load(f)
+        assert (isinstance(j['annotations'], list))
+        print('Annotation count: {}'.format(len(j['annotations'])))
+        if self.repeat_annotations > 1:
+            j['annotations'] = j['annotations'] * self.repeat_annotations
+            print('After repeat ({}) annotation count: {}'.format(self.repeat_annotations, len(j['annotations'])))
+        return j
 
     @property
     def vocabulary(self) -> Vocabulary:
         if not self._vocabulary:
             if not path.isfile(self.vocabulary_file):
                 self._create_vocab(self._tokenize_captions())
-            self._vocabulary = self.load_vocab()
+            self._vocabulary = self._load_vocab()
         return self._vocabulary
 
     def _download_annotations(self):
@@ -139,7 +147,7 @@ class MSCoco:
             gs_download(self.images_gs_url)
             self.is_downloaded = True
 
-    def create_image_records(self):
+    def _create_image_records(self):
         if path.isfile(self.images_records_path):
             return
 
@@ -172,15 +180,14 @@ class MSCoco:
 
         map_to_record(enumerate(images), self.images_records_path, func, len(images))
 
-
     @property
     def image_dataset_length(self) -> int:
-        self.create_image_records()
+        self._create_image_records()
         return get_records_length(self.images_records_path)
 
     @property
     def image_dataset(self) -> tf.data.Dataset:
-        self.create_image_records()
+        self._create_image_records()
 
         def _parse_image(example_serialized):
             features = {
@@ -190,16 +197,17 @@ class MSCoco:
                 "height": tf.FixedLenFeature((), tf.int64, default_value=-1),
             }
             return tf.parse_single_example(example_serialized, features)
+
         return tf.data.TFRecordDataset([self.images_records_path]).map(_parse_image)
 
     @property
     def captions_dataset_length(self) -> int:
-        self.create_captions_records()
+        self._create_captions_records()
         return get_records_length(self.caption_records_path)
 
     @property
     def captions_dataset(self) -> tf.data.Dataset:
-        self.create_captions_records()
+        self._create_captions_records()
 
         def parse_caption(sequence_example_serialized):
             context, sequence = tf.parse_single_sequence_example(
@@ -218,15 +226,15 @@ class MSCoco:
             target_seq = tf.slice(caption, [1], input_length)
             indicator = tf.ones(input_length, dtype=tf.int32)
             return {
-                       'image_id': context['image_id'],
-                       'input_seq': input_seq,
-                       'target_seq': target_seq,
-                       'mask': indicator
-                   }
+                'image_id': context['image_id'],
+                'input_seq': input_seq,
+                'target_seq': target_seq,
+                'mask': indicator
+            }
 
         return tf.data.TFRecordDataset([self.caption_records_path]).map(parse_caption)
 
-    def create_captions_records(self):
+    def _create_captions_records(self):
         if path.isfile(self.caption_records_path):
             return
         print('create_captions_records', self.caption_json_path, '\n')
@@ -239,7 +247,7 @@ class MSCoco:
                 caption_ids = [vocabulary.word_to_id(word) for word in caption]
 
                 context = tf.train.Features(feature={
-                    "image_id": int64_feature(id),
+                    "": int64_feature(id),
                 })
                 feature_lists = tf.train.FeatureLists(feature_list={
                     "caption": bytes_feature_list([w.encode() for w in caption]),

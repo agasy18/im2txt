@@ -49,7 +49,7 @@ def model_dir(mx, rm=False):
     for d in listdir():
         if d in project_ignore or d[0] == '.':
             continue
-        call_program(['cp', '-r', d, bk_dir])
+        call_program(['cp', '-rv', d, bk_dir])
 
     return m
 

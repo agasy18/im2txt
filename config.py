@@ -43,12 +43,16 @@ data_dir = 'data'
 
 # Dataset
 
+
+
+
 train_dataset = mscoco.MSCoco(cache_dir=data_dir,
                               images_gs_url='gs://images.cocodataset.org/train2014',
                               annotations_gs_url='gs://images.cocodataset.org/annotations',
                               caption_json_path='annotations/captions_train2014.json',
                               annotations_zip='annotations/annotations_trainval2014.zip',
-                              image_dir='train2014')
+                              image_dir='train2014',
+                              repeat_annotations=30)
 
 eval_dataset = mscoco.MSCoco(cache_dir=data_dir,
                              images_gs_url='gs://images.cocodataset.org/val2014',
@@ -136,7 +140,7 @@ def output_constructor(pred, out_dic):
 def seq_generator(features, input_seq, mask, mode):
     if mode == tf.estimator.ModeKeys.TRAIN:
         features = tf.layers.dropout(features, 1.0 - features_dropout_keep_prob, training=True)
-    features = tf.layers.dense(features, embedding_size * 0.5)
+    features = tf.layers.dense(features, embedding_size * 2)
     return feature2seq.feature2seq(features=features,
                                    input_seq=input_seq,
                                    mask=mask,
