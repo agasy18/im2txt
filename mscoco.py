@@ -1,41 +1,16 @@
 import json
 from collections import Counter
-from os import path, rename, makedirs
+from os import path, makedirs
 
 import tensorflow as tf
 
-from utlis import call_program, working_dir, gs_download, progress
+from dataset import Vocabulary, Dataset
 from record import bytes_feature_list, int64_feature, \
     int64_feature_list, bytes_feature, map_dataset_to_record, get_records_length, map_to_record
+from utlis import call_program, working_dir, gs_download
 
 
-class Vocabulary(object):
-    """Simple vocabulary wrapper."""
-
-    def __init__(self, words):
-        self._words = words
-        self._vocab = dict((w, i) for i, w in enumerate(words))
-        self.unk_id = len(words)
-
-    def word_to_id(self, word):
-        """Returns the integer id of a word string."""
-        if word in self._vocab:
-            return self._vocab[word]
-        else:
-            return self.unk_id
-
-    def id_to_word(self, word_id):
-        """Returns the word string of an integer word id."""
-        if word_id >= len(self._words):
-            return '<UNK>'
-        else:
-            return self._words[word_id]
-
-    def __len__(self):
-        return len(self._words) + 1
-
-
-class MSCoco:
+class MSCoco(Dataset):
     end_word = '</S>'
     start_word = '<S>'
     min_word_count = 4
@@ -247,7 +222,7 @@ class MSCoco:
                 caption_ids = [vocabulary.word_to_id(word) for word in caption]
 
                 context = tf.train.Features(feature={
-                    "": int64_feature(id),
+                    "image_id": int64_feature(id),
                 })
                 feature_lists = tf.train.FeatureLists(feature_list={
                     "caption": bytes_feature_list([w.encode() for w in caption]),
