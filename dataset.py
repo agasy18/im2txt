@@ -30,27 +30,27 @@ class Vocabulary(object):
 
 
 class Dataset(ABC):
-    @abstractmethod
     @property
+    @abstractmethod
     def vocabulary(self) -> Vocabulary:
         pass
 
-    @abstractmethod
     @property
+    @abstractmethod
     def image_dataset(self) -> tf.data.Dataset:
         pass
 
-    @abstractmethod
     @property
+    @abstractmethod
     def image_dataset_length(self) -> int:
         pass
 
-    @abstractmethod
     @property
+    @abstractmethod
     def captions_dataset(self) -> tf.data.Dataset:
         pass
 
-    @abstractmethod
     @property
+    @abstractmethod
     def captions_dataset_length(self) -> int:
         pass
