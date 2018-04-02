@@ -40,7 +40,7 @@ def model_dir(mx, rm=False):
         print('create', m)
         makedirs(m)
 
-    project_ignore = [args.model_dir,] + config.project_ignore
+    project_ignore = [args.model_dir, ] + config.project_ignore
     bk_dir = path.join(m, 'run', time.strftime("%Y%m%d-%H%M%S"))
     with working_dir(bk_dir, True), open('env', 'w') as ef, open('args', 'w') as af:
         ef.write(str(environ))
@@ -96,15 +96,11 @@ def im2txt(features, labels, mode):
 
     tf.summary.scalar('loss/sequence', batch_loss)
     tf.losses.add_loss(batch_loss)
-
-    weight_declay_loss = tf.reduce_mean([tf.nn.l2_loss(v) / tf.to_float(tf.size(v))
-                                         for v in tf.trainable_variables()],
-                                        name='weight_declay_loss_abs')
-
-    tf.summary.scalar('loss/weight_declay_abs', weight_declay_loss)
-    weight_declay_loss = tf.multiply(weight_declay_loss, config.weight_declay, name='weight_declay_loss')
-    tf.summary.scalar('loss/weight_declay', weight_declay_loss)
-    if config.weight_declay > 0:
+    if config.regularizer:
+        weight_declay_loss = tf.add_n([config.regularizer(v)
+                                       for v in tf.trainable_variables()],
+                                      name='weight_declay_loss')
+        tf.summary.scalar('loss/weight_declay', weight_declay_loss)
         tf.losses.add_loss(weight_declay_loss, loss_collection=tf.GraphKeys.REGULARIZATION_LOSSES)
 
     total_loss = tf.losses.get_total_loss()

@@ -16,28 +16,28 @@ eval_hooks = []
 hooks = []
 
 keep_checkpoint_max = 20
-max_train_epochs = 7
 save_checkpoints_steps = 10000
 train_log_step_count_steps = 500
 eval_log_step_count_steps = 50
 
-
 batch_size = int(getenv('batch_size', '32'))
-initial_learning_rate = float(getenv('initial_learning_rate', '0.1'))
+initial_learning_rate = float(getenv('initial_learning_rate', '2.0'))
 decay_count = 4
-learning_rate_decay_factor = float(getenv('learning_rate_decay_factor', '0.3'))
-num_epochs_per_decay = max_train_epochs / (decay_count + 1)
+learning_rate_decay_factor = float(getenv('learning_rate_decay_factor', '0.5'))
+num_epochs_per_decay = 8
+max_train_epochs = num_epochs_per_decay * (decay_count + 1)
 optimizer = 'SGD'
 clip_gradients = float(getenv('clip_gradients', '5.0'))
 seq_max_len = 100
 beam_size = 1
 num_lstm_units = 512
-weight_declay = float(getenv('weight_declay', '0.1'))
+regularizer = None
+# regularizer = tf.contrib.layers.l2_regularizer(scale=0.1)
 
 initializer_scale = 0.08
 embedding_size = 512
 lstm_dropout_keep_prob = float(getenv('lstm_dropout_keep_prob', '0.7'))
-features_dropout_keep_prob = float(getenv('features_dropout_keep_prob', '0.95'))
+features_dropout_keep_prob = float(getenv('features_dropout_keep_prob', '1.0'))
 vocab_size = lambda: 12000
 
 data_dir = 'data'
@@ -51,7 +51,6 @@ train_dataset = mscoco.MSCoco(cache_dir=data_dir,
                               image_dir='train2014',
                               repeat_annotations=30)
 
-
 eval_dataset = mscoco.MSCoco(cache_dir=data_dir,
                              images_gs_url='gs://images.cocodataset.org/val2014',
                              annotations_gs_url='gs://images.cocodataset.org/annotations',
@@ -64,9 +63,6 @@ num_examples_per_train_epoch = lambda: train_dataset.captions_dataset_length
 num_examples_per_eval = lambda: eval_dataset.captions_dataset_length
 
 caption_vocabulary = lambda: train_dataset.vocabulary
-
-
-
 
 # Feature extractor ############################################################
 
@@ -142,9 +138,10 @@ def output_constructor(pred, out_dic):
 
 
 def seq_generator(features, input_seq, mask, mode):
-    if mode == tf.estimator.ModeKeys.TRAIN:
+    if mode == tf.estimator.ModeKeys.TRAIN and features_dropout_keep_prob < 1.0:
         features = tf.layers.dropout(features, 1.0 - features_dropout_keep_prob, training=True)
-#     features = tf.layers.dense(features, embedding_size * 2)
+
+    # features = tf.layers.dense(features, embedding_size * 2)
     return feature2seq.feature2seq(features=features,
                                    input_seq=input_seq,
                                    mask=mask,
@@ -169,10 +166,10 @@ def optimize_loss(*args, **keywords):
         # 'sequence/logits/biases:0',
         # 'sequence/logits/weights:0',
         # 'sequence/seq_embedding/map:0'
-#         'sequence/image_embedding/weights:0'
+        #         'sequence/image_embedding/weights:0'
     ]
     variables = [v for v in variables if v.name not in var_skip_list]
-    print ('trainable variables', variables)
+    print('trainable variables', variables)
     return train_utils.optimize_loss(*args,
                                      initial_learning_rate=initial_learning_rate,
                                      num_examples_per_epoch=num_examples_per_train_epoch(),
@@ -188,12 +185,11 @@ def optimize_loss(*args, **keywords):
                                          "global_gradient_norm",
                                          "epoch"
                                      ],
-                                     variables = tf.trainable_variables(),
+                                     variables=tf.trainable_variables(),
                                      **keywords)
 
 
 from varible_update_hook import VaribleUpdateHook
-
 
 # lstm/BasicLSTMCell/Linear/Matrix': [1024, 2048]
 # lstm/BasicLSTMCell/Linear/Bias': [2048]
@@ -201,17 +197,16 @@ from varible_update_hook import VaribleUpdateHook
 # image_embedding/weights': [2048, 512]
 # logits/biases': [12000]
 # logits/weights': [512, 12000]
-train_hooks.append(
-    VaribleUpdateHook('/home/aghasy/tmp/im2txt_orig/model.ckpt-2000000', {
-        'sequence/lstm/basic_lstm_cell/kernel':'lstm/BasicLSTMCell/Linear/Matrix',
-        'sequence/lstm/basic_lstm_cell/bias':'lstm/BasicLSTMCell/Linear/Bias',
-        'sequence/logits/biases': 'logits/biases',
-        'sequence/logits/weights': 'logits/weights',
-        'sequence/seq_embedding/map': 'seq_embedding/map',
-        'sequence/image_embedding/weights': 'image_embedding/weights'
-    })
-)
-
+# train_hooks.append(
+#     VaribleUpdateHook('/home/aghasy/tmp/im2txt_orig/model.ckpt-2000000', {
+#         'sequence/lstm/basic_lstm_cell/kernel': 'lstm/BasicLSTMCell/Linear/Matrix',
+#         'sequence/lstm/basic_lstm_cell/bias': 'lstm/BasicLSTMCell/Linear/Bias',
+#         'sequence/logits/biases': 'logits/biases',
+#         'sequence/logits/weights': 'logits/weights',
+#         'sequence/seq_embedding/map': 'seq_embedding/map',
+#         'sequence/image_embedding/weights': 'image_embedding/weights'
+#     })
+# )
 
 #
 # train_hooks.append(
@@ -224,7 +219,6 @@ train_hooks.append(
 
 session_config = tf.ConfigProto()
 session_config.gpu_options.allow_growth = True
-
 
 project_ignore = [data_dir, '__pycache__']
 train_hooks += hooks
