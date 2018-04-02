@@ -36,7 +36,7 @@ def input_fn(dataset, image_preprocessor, feature_extractor: FeatureExtractor, i
             d = d.repeat(max_epochs)
 
             if is_training:
-                d = d.shuffle(buffer_size=batch_size * 2)
+                d = d.shuffle(buffer_size=100000)
             d = d.padded_batch(batch_size, padded_shapes=({'id': [], 'features': [feature_size], 'input_seq': [None]},
                                                           {'target_seq': [None], 'mask': [None]}))
 

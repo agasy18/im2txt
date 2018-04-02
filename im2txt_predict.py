@@ -24,8 +24,9 @@ def predict_fn(features, mode, params):
     dfeatures, *others = config.feature_detector.build(features['image_tensor'], mode, False)
 
     dfeatures.set_shape([1, params['feature-size']])
-
-    with tf.Session() as sess:
+    session_config = tf.ConfigProto()
+    session_config.gpu_options.allow_growth = True
+    with tf.Session(config=session_config) as sess:
         config.feature_detector.load(sess)
 
     with tf.variable_scope('sequence'):

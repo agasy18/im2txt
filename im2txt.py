@@ -40,7 +40,7 @@ def model_dir(mx, rm=False):
         print('create', m)
         makedirs(m)
 
-    project_ignore = [args.model_dir] + config.project_ignore
+    project_ignore = [args.model_dir,] + config.project_ignore
     bk_dir = path.join(m, 'run', time.strftime("%Y%m%d-%H%M%S"))
     with working_dir(bk_dir, True), open('env', 'w') as ef, open('args', 'w') as af:
         ef.write(str(environ))
@@ -129,14 +129,16 @@ estimator_train = tf.estimator.Estimator(model_fn=im2txt,
                                          config=tf.estimator.RunConfig().replace(
                                              save_checkpoints_steps=config.save_checkpoints_steps,
                                              keep_checkpoint_max=config.keep_checkpoint_max,
-                                             log_step_count_steps=config.train_log_step_count_steps
+                                             log_step_count_steps=config.train_log_step_count_steps,
+                                             session_config=config.session_config
                                          )) if 'train' in args.mode else None
 estimator_eval = tf.estimator.Estimator(model_fn=im2txt,
                                         model_dir=model_dir_path,
                                         config=tf.estimator.RunConfig().replace(
                                             save_checkpoints_steps=config.save_checkpoints_steps,
                                             keep_checkpoint_max=config.keep_checkpoint_max,
-                                            log_step_count_steps=config.eval_log_step_count_steps
+                                            log_step_count_steps=config.eval_log_step_count_steps,
+                                            session_config=config.session_config
                                         )) if 'eval' in args.mode else None
 
 
@@ -208,7 +210,7 @@ elif args.mode == 'train-eval':
     eval_in = eval_input_fn()
     ch = None
     while True:
-        estimator_train.train(input_fn=train_in, steps=config.save_checkpoints_steps * config.eval_every_chackpoint,
+        estimator_train.train(input_fn=train_in, steps=config.num_examples_per_train_epoch() / config.batch_size,
                               hooks=hooks + config.train_hooks)
         if ch == estimator_train.latest_checkpoint():
             break

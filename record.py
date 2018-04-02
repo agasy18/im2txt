@@ -62,7 +62,9 @@ def map_dataset_to_record(dataset: tf.data.Dataset, records_path: str, func: Cal
 
 def map_to_record(data: Iterable, records_path: str, func, iter_count=None,
                   init_func=None):
-    with tf.Session() as sess:
+    session_config = tf.ConfigProto()
+    session_config.gpu_options.allow_growth = True
+    with tf.Session(config=session_config) as sess:
         init_func and init_func(sess)
         if path.dirname(records_path):
             makedirs(path.dirname(records_path), exist_ok=True)

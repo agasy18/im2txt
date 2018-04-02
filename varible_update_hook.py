@@ -12,6 +12,7 @@ class VaribleUpdateHook(tf.train.SessionRunHook):
         self.placeholder_map = {}
         variable_to_dtype_map = self.loader.get_variable_to_dtype_map()
         variable_to_shape_map = self.loader.get_variable_to_shape_map()
+        
         for k, v in self.var_map.items():
             placeholder = tf.placeholder(variable_to_dtype_map[v], variable_to_shape_map[v])
             self.placeholder_map[placeholder] = self.loader.get_tensor(v)
@@ -19,7 +20,7 @@ class VaribleUpdateHook(tf.train.SessionRunHook):
     
     def after_create_session(self, session, coord):
         if self.run_count > 0:
-            print ("Loading", self.chackpoint_filepattern)
+            print ("Loading", self.chackpoint_filepattern, 'from\n', self.loader.get_variable_to_shape_map())
             session.run(self.assign_ops, self.placeholder_map)
             self.run_count -= 1
         del self.placeholder_map
